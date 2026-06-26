@@ -163,10 +163,9 @@ export const getProjectById = async (req, res) => {
   } catch (error) {
   console.error('PROJECT ERROR:', error);
 
-  res.status(500).json({
+res.status(500).json({
     message: error.message,
     code: error.code,
-    sqlMessage: error.sqlMessage,
     stack: error.stack
   });
 }
