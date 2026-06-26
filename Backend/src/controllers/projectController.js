@@ -161,8 +161,15 @@ export const getProjectById = async (req, res) => {
 
     res.json(normalizeProjectRow(projects[0]));
   } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
+  console.error('PROJECT ERROR:', error);
+
+  res.status(500).json({
+    message: error.message,
+    code: error.code,
+    sqlMessage: error.sqlMessage,
+    stack: error.stack
+  });
+}
 };
 
 export const createProject = async (req, res) => {

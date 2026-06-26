@@ -1,13 +1,5 @@
 import pool from '../config/database.js';
 
-const setNoCacheHeaders = (res) => {
-  res.set({
-    'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
-    Pragma: 'no-cache',
-    Expires: '0',
-  });
-};
-
 const isRenderableImageSource = (imagePath) => {
   if (!imagePath || typeof imagePath !== 'string') {
     return false;
@@ -56,7 +48,6 @@ const parseMetadata = (section) => {
 
 export const getAllSections = async (req, res) => {
   try {
-    setNoCacheHeaders(res);
     const connection = await pool.getConnection();
     const [sections] = await connection.query('SELECT * FROM sections ORDER BY id ASC');
     connection.release();
@@ -74,7 +65,6 @@ export const getAllSections = async (req, res) => {
 
 export const getSectionBySlug = async (req, res) => {
   try {
-    setNoCacheHeaders(res);
     const { slug } = req.params;
     const connection = await pool.getConnection();
     const [sections] = await connection.query('SELECT * FROM sections WHERE slug = ?', [slug]);
