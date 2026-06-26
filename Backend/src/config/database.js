@@ -19,6 +19,9 @@ const ensureDatabaseAndTables = async () => {
     queueLimit: 0,
   });
 
-  // Ensure essential tables exist
-}
-export default exportedPool;
+  // Yahan tumhara table creation code rahega
+
+  return pool;
+};
+
+export default await ensureDatabaseAndTables();
