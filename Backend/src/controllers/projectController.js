@@ -108,16 +108,27 @@ const seedProjects = [
 let hasCheckedProjectSeed = false;
 
 const seedProjectsIfNeeded = async (connection) => {
-  const [[{ count }]] = await connection.query('SELECT COUNT(*) AS count FROM projects');
+  try {
+    const [rows] = await connection.query(
+      'SELECT COUNT(*) AS count FROM projects'
+    );
 
-  if (Number(count) > 0) {
-    return;
+    const count = rows?.[0]?.count || 0;
+
+    if (Number(count) > 0) {
+      return;
+    }
+
+    await connection.query(
+      'INSERT INTO projects (title, description, image, link, tech_stack) VALUES ?',
+      [seedProjects]
+    );
+
+    console.log('✅ Default projects inserted');
+  } catch (error) {
+    console.error('❌ Project seed error:', error.message);
+    throw error;
   }
-
-  await connection.query(
-    'INSERT INTO projects (title, description, image, link, tech_stack) VALUES ?',
-    [seedProjects.map((project) => [project[0], project[1], project[2], project[3], project[4]])]
-  );
 };
 
 export const getAllProjects = async (req, res) => {
