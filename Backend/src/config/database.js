@@ -21,3 +21,4 @@ const ensureDatabaseAndTables = async () => {
 
   // Ensure essential tables exist
 }
+export default exportedPool;
