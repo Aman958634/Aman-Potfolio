@@ -34,6 +34,7 @@ const PORT = process.env.PORT || 5000;
 const allowedOrigins = process.env.NODE_ENV === 'production'
   ? [
     'https://aman-potfolio-amber.vercel.app',
+    'https://aman-potfolio-y3ppx1xjo-amanullaathaniya-3992s-projects.vercel.app',
     'https://yourdomain.com',
   ]
   : [
@@ -47,6 +48,7 @@ app.use(cors({
   origin: (origin, callback) => {
     if (!origin) return callback(null, true);
     if (allowedOrigins.indexOf(origin) !== -1) return callback(null, true);
+    if (/^https:\/\/[^/]+\.vercel\.app$/.test(origin)) return callback(null, true);
     return callback(new Error('CORS policy: Origin not allowed'));
   },
   credentials: true,
