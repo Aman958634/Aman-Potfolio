@@ -50,8 +50,9 @@ const MainPage = () => (
 function AppWrapper() {
   const location = useLocation();
   const navigate = useNavigate();
-  const showNavbar = !location.pathname.startsWith('/admin');
-  const showAdminBackButton = location.pathname.startsWith('/admin') && location.pathname !== '/admin/dashboard' && location.pathname !== '/admin/login';
+  const isAdminPath = location.pathname.startsWith('/admin') || location.pathname === '/dashboard';
+  const showNavbar = !isAdminPath;
+  const showAdminBackButton = isAdminPath && location.pathname !== '/admin/dashboard' && location.pathname !== '/admin/login' && location.pathname !== '/dashboard';
 
   useEffect(() => {
     if (!showNavbar) return undefined;
@@ -153,6 +154,13 @@ const router = createBrowserRouter(
             { path: 'users', element: <AdminUsersAdmin /> },
             { path: 'analytics', element: <AdminAnalyticsAdmin /> },
             { path: 'about', element: <AdminAboutAdmin /> },
+          ],
+        },
+        {
+          path: 'dashboard',
+          element: <PrivateRoute />,
+          children: [
+            { index: true, element: <AdminDashboard /> },
           ],
         },
       ],
