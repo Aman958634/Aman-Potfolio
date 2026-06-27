@@ -16,16 +16,22 @@ export const loginAdmin = async (req, res) => {
     const [rows] = await pool.query('SELECT * FROM admins WHERE email = ? LIMIT 1', [email]);
     let admin = rows[0];
 
+    console.log('Login attempt email:', email);
+    console.log('Admin found:', !!admin);
+
     if (!admin) {
       const hashedPassword = await bcrypt.hash(password, 10);
       const [result] = await pool.query('INSERT INTO admins (email, password) VALUES (?, ?)', [email, hashedPassword]);
       admin = { id: result.insertId, email, password: hashedPassword };
+      console.log('Created admin during login for:', email);
     }
 
     const storedPassword = admin?.password || '';
     const isMatch = storedPassword.startsWith('$2')
       ? await bcrypt.compare(password, storedPassword)
       : storedPassword === password;
+
+    console.log('Password match:', isMatch);
 
     if (!isMatch) {
       return res.status(401).json({ message: 'Invalid credentials' });
