@@ -19,6 +19,7 @@ import settingRoutes from './routes/settingRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import authRoutes from './routes/authRoutes.js';
 import { errorHandler } from './middleware/auth.js';
+import pool from './config/database.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -107,6 +108,16 @@ app.use('/api/analytics', analyticsRoutes);
 app.use('/api/settings', settingRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/auth', authRoutes);
+
+app.get('/api/debug/admins', async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT id, email, created_at FROM admins ORDER BY id ASC');
+    res.json(rows);
+  } catch (error) {
+    console.error('Debug admins error:', error.message);
+    res.status(500).json({ message: 'Failed to fetch admins' });
+  }
+});
 
 // Health check route
 app.get('/health', (req, res) => {

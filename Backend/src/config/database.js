@@ -22,6 +22,8 @@ const createTables = async () => {
     conn = await pool.getConnection();
 
     console.log('✅ MySQL Connected');
+    console.log('ADMIN_EMAIL from env:', process.env.ADMIN_EMAIL || 'not set');
+    console.log('ADMIN_PASSWORD from env:', process.env.ADMIN_PASSWORD ? 'set' : 'not set');
 
     // Admins Table
     await conn.query(`
@@ -164,12 +166,17 @@ const createTables = async () => {
 
     // Create default admin user
     const [adminRows] = await conn.query('SELECT COUNT(*) AS count FROM admins');
+    console.log('admins table count before seeding:', adminRows[0].count);
+
     if (adminRows[0].count === 0) {
-      const adminEmail = process.env.ADMIN_EMAIL || 'admin@example.com';
+      const adminEmail = (process.env.ADMIN_EMAIL || 'admin@example.com').trim().toLowerCase();
       const adminPassword = process.env.ADMIN_PASSWORD || 'adminpassword';
       const hashedPassword = await bcrypt.hash(adminPassword, 10);
       await conn.query('INSERT INTO admins (email, password) VALUES (?, ?)', [adminEmail, hashedPassword]);
-      console.log('Default admin user created.');
+      console.log('Default admin user created with email:', adminEmail);
+    } else {
+      const [existingAdmins] = await conn.query('SELECT id, email, created_at FROM admins ORDER BY id ASC');
+      console.log('Existing admins:', existingAdmins);
     }
 
     // Seed data (basic examples, expand as needed)
