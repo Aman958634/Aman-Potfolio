@@ -17,8 +17,9 @@ const pool = mysql.createPool({
 });
 
 const createTables = async () => {
+  let conn;
   try {
-    const conn = await pool.getConnection();
+    conn = await pool.getConnection();
 
     console.log('✅ MySQL Connected');
 
