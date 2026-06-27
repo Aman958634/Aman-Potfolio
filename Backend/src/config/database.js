@@ -262,7 +262,7 @@ const createTables = async () => {
     if (settingRows[0].count === 0) {
       await conn.query(`
         INSERT INTO settings (site_title, hero_title, hero_subtitle, about_text, contact_email, github_url, linkedin_url, twitter_url) VALUES
-        ('Aman's Portfolio', 'Hi, I\'m Aman!', 'Full Stack Developer', 'I am a passionate full stack developer with experience in building web applications using modern technologies.', 'aman@example.com', 'https://github.com/aman-web-dev', 'https://linkedin.com/in/aman-web-dev', 'https://twitter.com/aman-web-dev')
+        ('Aman''s Portfolio', 'Hi, I''m Aman!', 'Full Stack Developer', 'I am a passionate full stack developer with experience in building web applications using modern technologies.', 'aman@example.com', 'https://github.com/aman-web-dev', 'https://linkedin.com/in/aman-web-dev', 'https://twitter.com/aman-web-dev')
       `);
       console.log('Settings seed data inserted.');
     }

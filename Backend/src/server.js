@@ -110,7 +110,11 @@ app.use('/api/auth', authRoutes);
 
 // Health check route
 app.get('/health', (req, res) => {
-  res.json({ status: 'Backend is running' });
+  res.json({
+    success: true,
+    message: 'Backend running',
+    database: 'connected'
+  });
 });
 
 // 404 handler
