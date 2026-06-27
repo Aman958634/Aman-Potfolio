@@ -32,7 +32,10 @@ const PORT = process.env.PORT || 5000;
 
 // Middleware
 const allowedOrigins = process.env.NODE_ENV === 'production'
-  ? ['https://yourdomain.com']
+  ? [
+    'https://aman-potfolio-amber.vercel.app',
+    'https://yourdomain.com',
+  ]
   : [
     'http://localhost:5173',
     'http://127.0.0.1:5173',

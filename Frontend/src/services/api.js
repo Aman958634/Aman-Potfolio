@@ -94,6 +94,13 @@ const createCrudService = (endpoint) => ({
       throw parseApiError(error);
     }
   },
+  getBySlug: async (slug) => {
+    try {
+      return await api.get(`/${endpoint}/${slug}`);
+    } catch (error) {
+      throw parseApiError(error);
+    }
+  },
   create: async (data) => {
     try {
       return await api.post(`/${endpoint}`, data);
