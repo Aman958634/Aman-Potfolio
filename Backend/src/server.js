@@ -52,51 +52,6 @@ app.use(cors({
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// Force dynamic API responses to never be cached by browsers/CDNs/proxies.
-app.use('/api', (req, res, next) => {
-  res.set({
-    'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
-    Pragma: 'no-cache',
-    Expires: '0',
-  });
-  next();
-});
-
-// Ensure uploads directory exists so multer can write files
-const uploadsDir = path.resolve('uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
-
-// Uploaded files are immutable because filenames are timestamp-based.
-app.use('/uploads', express.static(uploadsDir, {
-  maxAge: '1y',
-  immutable: true,
-  etag: true,
-  lastModified: true,
-}));
-
-// Multer storage configuration
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadsDir);
-  },
-  filename: (req, file, cb) => {
-    cb(null, Date.now() + path.extname(file.originalname));
-  },
-});
-
-const upload = multer({ storage: storage });
-
-// Upload route
-app.post('/api/upload', upload.single('image'), (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ message: 'No file uploaded' });
-  }
-  const fileUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
-  res.json({ filePath: fileUrl });
-});
-
 // Routes
 app.use('/api/projects', projectRoutes);
 app.use('/api/skills', skillRoutes);
@@ -108,6 +63,7 @@ app.use('/api/testimonials', testimonialRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/settings', settingRoutes);
 app.use('/api/users', userRoutes);
+console.log('Auth routes loaded');
 app.use('/api/auth', authRoutes);
 app.use('/api/debug', debugRoutes);
 
@@ -128,19 +84,12 @@ app.use((req, res) => {
 // Error handler
 app.use(errorHandler);
 
-// Start server with port fallback: if desired PORT is in use, try next ports.
+// Start server
 const startServer = (startPort, attempts = 10) => {
   const port = Number(startPort);
   const server = app.listen(port, () => {
     const actualPort = server.address().port;
     console.log(`✅ Server running on http://localhost:${actualPort}`);
-    console.log(`📚 API Documentation:`);
-    console.log(`   GET  /api/projects         - Get all projects`);
-    console.log(`   GET  /api/skills           - Get all skills`);
-    console.log(`   GET  /api/experience       - Get all experience`);
-    console.log(`   POST /api/contact          - Submit contact form`);
-    console.log(`   POST /api/auth/login       - Admin login`);
-    console.log(`   POST /api/auth/seed        - Seed admin account (only once)`);
   });
 
   server.on('error', (error) => {
@@ -148,10 +97,8 @@ const startServer = (startPort, attempts = 10) => {
       console.error(`⚠️ Port ${port} is already in use. Trying port ${port + 1}...`);
       server.close?.();
       if (attempts > 0) {
-        // try next port
         startServer(port + 1, attempts - 1);
       } else {
-        console.error(`❌ All fallback ports unavailable. Stop the process using the occupied port or set a different PORT in Backend/.env.`);
         process.exit(1);
       }
       return;

@@ -1,8 +1,11 @@
 import pool from '../config/database.js';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
+import { Router } from 'express';
 
 const normalizeEmail = (value) => String(value || '').trim().toLowerCase();
+
+const router = Router();
 
 export const loginAdmin = async (req, res) => {
   const email = normalizeEmail(req.body?.email);
@@ -68,3 +71,12 @@ export const seedAdmin = async (req, res) => {
     return res.status(500).json({ message: 'Server error during admin seeding.' });
   }
 };
+
+router.get('/test', (req, res) => {
+  res.json({ success: true, route: 'auth working' });
+});
+
+router.post('/login', loginAdmin);
+router.post('/seed', seedAdmin);
+
+export default router;
