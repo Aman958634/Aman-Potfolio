@@ -51,11 +51,3 @@ export const seedAdmin = async (req, res) => {
     res.status(500).json({ message: 'Server error during admin seeding.' });
   }
 };
-    await connection.query('INSERT INTO admins (email, password) VALUES (?, ?)', [email, hashedPassword]);
-    connection.release();
-
-    res.status(201).json({ message: 'Admin seeded successfully' });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
