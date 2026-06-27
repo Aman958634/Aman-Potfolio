@@ -97,7 +97,6 @@ const seedProjects = [
     'React Native, Charts, Health, Mobile',
   ],
   [
-    'School ERP System',
     'An organized school management portal for academics, communication, and administration.',
     'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=1000&h=700&fit=crop',
     'https://github.com',
@@ -161,14 +160,9 @@ export const getProjectById = async (req, res) => {
 
     res.json(normalizeProjectRow(projects[0]));
   } catch (error) {
-  console.error('PROJECT ERROR:', error);
-
-res.status(500).json({
-    message: error.message,
-    code: error.code,
-    stack: error.stack
-  });
-}
+    console.error('Error fetching project by ID:', error.message);
+    res.status(500).json({ message: 'Server error' });
+  }
 };
 
 export const createProject = async (req, res) => {

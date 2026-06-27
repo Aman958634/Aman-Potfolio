@@ -1,19 +1,19 @@
 import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-this';
+export const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
 
-export const verifyToken = (req, res, next) => {
-  const authHeader = req.headers.authorization || req.headers.Authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ message: 'Authorization header missing or invalid' });
+  if (token == null) return res.status(401).json({ message: 'Access token required' }); // No token
+
+  if (!process.env.JWT_SECRET) {
+    console.error('JWT_SECRET is not defined in environment variables.');
+    return res.status(500).json({ message: 'Server configuration error' });
   }
 
-  const token = authHeader.split(' ')[1];
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    req.admin = decoded;
+  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+    if (err) return res.status(403).json({ message: 'Invalid or expired access token' }); // Invalid token
+    req.user = user;
     next();
-  } catch (error) {
-    res.status(401).json({ message: 'Invalid or expired token' });
-  }
+  });
 };

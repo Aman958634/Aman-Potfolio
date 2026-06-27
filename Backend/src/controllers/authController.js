@@ -1,53 +1,56 @@
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
 import pool from '../config/database.js';
+import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-this';
+export const login = async (req, res) => {
+  const { email, password } = req.body;
 
-export const loginAdmin = async (req, res) => {
   try {
-    const { email, password } = req.body;
-    if (!email || !password) {
-      return res.status(400).json({ message: 'Email and password are required' });
-    }
-
-    const connection = await pool.getConnection();
-    const [rows] = await connection.query('SELECT * FROM admins WHERE email = ?', [email]);
-    connection.release();
-
-    if (rows.length === 0) {
-      return res.status(401).json({ message: 'Invalid credentials' });
-    }
-
+    const [rows] = await pool.query('SELECT * FROM admins WHERE email = ?', [email]);
     const admin = rows[0];
-    const isMatch = await bcrypt.compare(password, admin.password);
-    if (!isMatch) {
-      return res.status(401).json({ message: 'Invalid credentials' });
+
+    if (!admin) {
+      return res.status(400).json({ message: 'Invalid credentials' });
     }
 
-    const token = jwt.sign({ id: admin.id, email: admin.email }, JWT_SECRET, { expiresIn: '12h' });
-    res.json({ token, email: admin.email });
+    const isMatch = await bcrypt.compare(password, admin.password);
+
+    if (!isMatch) {
+      return res.status(400).json({ message: 'Invalid credentials' });
+    }
+
+    if (!process.env.JWT_SECRET) {
+      console.error('JWT_SECRET is not defined in environment variables.');
+      return res.status(500).json({ message: 'Server configuration error' });
+    }
+
+    const token = jwt.sign({ id: admin.id, email: admin.email }, process.env.JWT_SECRET, { expiresIn: '1h' });
+
+    res.json({ token });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('Login error:', error.message);
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
 export const seedAdmin = async (req, res) => {
   try {
-    const { email, password } = req.body;
-    if (!email || !password) {
-      return res.status(400).json({ message: 'Email and password are required' });
+    const [rows] = await pool.query('SELECT COUNT(*) as count FROM admins');
+    if (rows[0].count === 0) {
+      const adminEmail = process.env.ADMIN_EMAIL || 'admin@example.com';
+      const adminPassword = process.env.ADMIN_PASSWORD || 'adminpassword';
+      const hashedPassword = await bcrypt.hash(adminPassword, 10);
+      await pool.query('INSERT INTO admins (email, password) VALUES (?, ?)', [adminEmail, hashedPassword]);
+      console.log('Default admin user created via seed endpoint.');
+      return res.status(201).json({ message: 'Default admin user created.' });
+    } else {
+      return res.status(200).json({ message: 'Admin user already exists.' });
     }
-
-    const connection = await pool.getConnection();
-    const [existing] = await connection.query('SELECT COUNT(*) as cnt FROM admins');
-    const count = existing[0]?.cnt || 0;
-    if (count > 0) {
-      connection.release();
-      return res.status(400).json({ message: 'Admin already exists' });
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 12);
+  } catch (error) {
+    console.error('Seed admin error:', error.message);
+    res.status(500).json({ message: 'Server error during admin seeding.' });
+  }
+};
     await connection.query('INSERT INTO admins (email, password) VALUES (?, ?)', [email, hashedPassword]);
     connection.release();
 

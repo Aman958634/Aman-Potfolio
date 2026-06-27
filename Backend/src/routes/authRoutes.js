@@ -1,10 +1,9 @@
-import express from 'express';
-import { loginAdmin, seedAdmin } from '../controllers/authController.js';
-import { verifyToken } from '../middleware/authMiddleware.js';
+import { Router } from 'express';
+import { login, seedAdmin } from '../controllers/authController.js';
 
-const router = express.Router();
+const router = Router();
 
-router.post('/login', loginAdmin);
-router.post('/seed', verifyToken, seedAdmin);
+router.post('/login', login);
+router.post('/seed', seedAdmin);
 
 export default router;
