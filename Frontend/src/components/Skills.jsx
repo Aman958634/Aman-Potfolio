@@ -20,7 +20,7 @@ import {
   SiPostman,
 } from 'react-icons/si';
 import { FaPalette, FaServer, FaCode, FaTerminal, FaDatabase, FaFileCode, FaRegLightbulb } from 'react-icons/fa';
-import { skillsAPI } from '../utils/api';
+import { skillsAPI } from '../services/api';
 
 gsap.registerPlugin(ScrollTrigger);
 

@@ -1,29 +1,35 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import api from '../utils/api';
+import { useEffect, useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { login, isAuthenticated } from '../services/api';
 
 const AdminLogin = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+  const from = location.state?.from?.pathname || '/admin/dashboard';
+
+  useEffect(() => {
+    if (isAuthenticated()) {
+      navigate('/admin/dashboard', { replace: true });
+    }
+  }, [navigate]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError('');
+    setLoading(true);
 
     try {
-      const { data } = await api.post('/auth/login', { email, password });
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('adminEmail', data.email);
-      navigate('/admin/dashboard');
+      await login(email.trim(), password);
+      navigate(from, { replace: true });
     } catch (err) {
       console.error('Login error:', err);
-      setError(
-        err.response?.data?.message
-        || err.message
-        || 'Unable to connect to the backend. Restart your frontend and backend servers.'
-      );
+      setError(err.message || 'Unable to connect to the backend.');
+    } finally {
+      setLoading(false);
     }
   };
 

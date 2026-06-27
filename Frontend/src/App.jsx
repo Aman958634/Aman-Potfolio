@@ -4,6 +4,7 @@ import { createBrowserRouter, RouterProvider, Outlet, useLocation, useNavigate, 
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import PrivateRoute from './components/PrivateRoute';
 import AdminLogin from './pages/AdminLogin';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminEditor from './pages/AdminEditor';
@@ -132,22 +133,28 @@ const router = createBrowserRouter(
       element: <AppWrapper />,
       children: [
         { index: true, element: <MainPage /> },
-        { path: 'admin', element: <Navigate to="/admin/dashboard" replace /> },
-        { path: 'admin/about', element: <AdminAboutAdmin /> },
         { path: 'admin/login', element: <AdminLogin /> },
-        { path: 'admin/dashboard', element: <AdminDashboard /> },
-        { path: 'admin/editor/:slug', element: <AdminEditor /> },
-        { path: 'admin/sections', element: <AdminSections /> },
-        { path: 'admin/services', element: <AdminServicesAdmin /> },
-        { path: 'admin/portfolio', element: <AdminPortfolioItems /> },
-        { path: 'admin/projects', element: <AdminProjectsAdmin /> },
-        { path: 'admin/skills', element: <AdminSkillsAdmin /> },
-        { path: 'admin/experience', element: <AdminExperienceAdmin /> },
-        { path: 'admin/testimonials', element: <AdminTestimonialsAdmin /> },
-        { path: 'admin/messages', element: <AdminMessagesAdmin /> },
-        { path: 'admin/settings', element: <AdminSettingsAdmin /> },
-        { path: 'admin/users', element: <AdminUsersAdmin /> },
-        { path: 'admin/analytics', element: <AdminAnalyticsAdmin /> },
+        {
+          path: 'admin',
+          element: <PrivateRoute />,
+          children: [
+            { index: true, element: <Navigate to="/admin/dashboard" replace /> },
+            { path: 'dashboard', element: <AdminDashboard /> },
+            { path: 'editor/:slug', element: <AdminEditor /> },
+            { path: 'sections', element: <AdminSections /> },
+            { path: 'services', element: <AdminServicesAdmin /> },
+            { path: 'portfolio', element: <AdminPortfolioItems /> },
+            { path: 'projects', element: <AdminProjectsAdmin /> },
+            { path: 'skills', element: <AdminSkillsAdmin /> },
+            { path: 'experience', element: <AdminExperienceAdmin /> },
+            { path: 'testimonials', element: <AdminTestimonialsAdmin /> },
+            { path: 'messages', element: <AdminMessagesAdmin /> },
+            { path: 'settings', element: <AdminSettingsAdmin /> },
+            { path: 'users', element: <AdminUsersAdmin /> },
+            { path: 'analytics', element: <AdminAnalyticsAdmin /> },
+            { path: 'about', element: <AdminAboutAdmin /> },
+          ],
+        },
       ],
     },
   ],

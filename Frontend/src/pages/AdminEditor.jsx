@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import api, { resolveImageUrl, sectionsAPI } from '../utils/api';
+import { resolveImageUrl, sectionsAPI, uploadAPI } from '../services/api';
 
 const AdminEditor = () => {
   const { slug } = useParams();
@@ -59,11 +59,7 @@ const AdminEditor = () => {
     const formData = new FormData();
     formData.append('image', imageFile);
     try {
-      const { data } = await api.post('/upload', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      const { data } = await uploadAPI.uploadImage(formData);
       return data.filePath;
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to upload image');

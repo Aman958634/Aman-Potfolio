@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { uploadAPI, resolveImageUrl } from '../utils/api';
+import { uploadAPI, resolveImageUrl } from '../services/api';
 
 const isRenderableImageSource = (imagePath) => {
   if (!imagePath || typeof imagePath !== 'string') {

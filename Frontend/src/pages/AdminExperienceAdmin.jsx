@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { experienceAPI } from '../utils/api';
+import { experienceAPI } from '../services/api';
 
 const AdminExperienceAdmin = () => {
   const [items, setItems] = useState([]);

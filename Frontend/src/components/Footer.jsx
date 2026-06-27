@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { sectionsAPI } from '../utils/api';
+import { sectionsAPI } from '../services/api';
 
 const Footer = () => {
   const currentYear = new Date().getFullYear();

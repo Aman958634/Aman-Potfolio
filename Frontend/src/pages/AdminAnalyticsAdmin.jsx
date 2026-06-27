@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { analyticsAPI } from '../utils/api';
+import { analyticsAPI } from '../services/api';
 
 const AdminAnalyticsAdmin = () => {
   const [metrics, setMetrics] = useState([]);

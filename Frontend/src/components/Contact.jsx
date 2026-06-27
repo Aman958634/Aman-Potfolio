@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import gsap from 'gsap';
-import { contactAPI, sectionsAPI, settingsAPI } from '../utils/api';
+import { contactAPI, sectionsAPI, settingsAPI } from '../services/api';
 
 const Contact = () => {
   const [formData, setFormData] = useState({ name: '', email: '', message: '' });

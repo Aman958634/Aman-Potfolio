@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { projectsAPI } from '../utils/api';
+import { projectsAPI } from '../services/api';
 
 const AdminPortfolioItems = () => {
   const [projects, setProjects] = useState([]);

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { contactAPI } from '../utils/api';
+import { contactAPI } from '../services/api';
 
 const AdminMessagesAdmin = () => {
   const [messages, setMessages] = useState([]);

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { sectionsAPI, servicesAPI, projectsAPI, skillsAPI, experienceAPI, testimonialsAPI, contactAPI, usersAPI } from '../utils/api';
+import { logout, sectionsAPI, servicesAPI, projectsAPI, skillsAPI, experienceAPI, testimonialsAPI, contactAPI, usersAPI } from '../services/api';
 
 const sidebarLinks = [
   'Dashboard',
@@ -89,8 +89,7 @@ const AdminDashboard = () => {
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('adminEmail');
+    logout();
     navigate('/admin/login');
   };
 

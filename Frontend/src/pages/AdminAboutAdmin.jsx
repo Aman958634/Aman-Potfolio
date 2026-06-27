@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import api, { resolveImageUrl, sectionsAPI } from '../utils/api';
+import { resolveImageUrl, sectionsAPI, uploadAPI } from '../services/api';
 
 const inputCls =
   'mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-400/20 transition';
@@ -103,9 +103,7 @@ const AdminAboutAdmin = () => {
     const fd = new FormData();
     fd.append('image', imageFile);
     try {
-      const { data } = await api.post('/upload', fd, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      const { data } = await uploadAPI.uploadImage(fd);
       return data.filePath;
     } catch {
       setError('Image upload failed.');

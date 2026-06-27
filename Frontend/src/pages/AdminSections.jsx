@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import api, { resolveImageUrl, sectionsAPI } from '../utils/api';
+import { resolveImageUrl, sectionsAPI, uploadAPI } from '../services/api';
 
 const AdminSections = () => {
   const [sections, setSections] = useState([]);
@@ -50,11 +50,7 @@ const AdminSections = () => {
     formData.append('image', imageFile);
 
     try {
-      const { data } = await api.post('/upload', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      const { data } = await uploadAPI.uploadImage(formData);
       return data.filePath;
     } catch (error) {
       setFeedback(error.response?.data?.message || 'Unable to upload image.');

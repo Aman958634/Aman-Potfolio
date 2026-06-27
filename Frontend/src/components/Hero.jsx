@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { HiArrowRight } from 'react-icons/hi';
-import { sectionsAPI } from '../utils/api';
+import { sectionsAPI } from '../services/api';
 import SkillsMarquee from './SkillsMarquee';
 
 const badgeVariant = {

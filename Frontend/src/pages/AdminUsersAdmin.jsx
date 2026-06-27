@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { usersAPI } from '../utils/api';
+import { usersAPI } from '../services/api';
 
 const AdminUsersAdmin = () => {
   const [users, setUsers] = useState([]);

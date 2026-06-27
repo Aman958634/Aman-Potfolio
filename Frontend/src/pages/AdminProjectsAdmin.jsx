@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { projectsAPI, resolveImageUrl } from '../utils/api';
+import { projectsAPI, resolveImageUrl } from '../services/api';
 import ProjectImageUpload from '../components/ProjectImageUpload';
 
 const getFallbackImage = (title = '') => {
@@ -43,23 +43,24 @@ const AdminProjectsAdmin = () => {
   const [form, setForm] = useState({ title: '', description: '', image: '', link: '', tech_stack: '' });
   const [editing, setEditing] = useState(null);
   const [feedback, setFeedback] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const imagePreview = resolveImageUrl(
-    isRenderableImageSource(form.image) ? form.image.trim() : getFallbackImage(form.title)
-  );
+  const imagePreview = isRenderableImageSource(form.image) ? form.image.trim() : getFallbackImage(form.title);
 
   const loadProjects = async () => {
+    setLoading(true);
+    setError(null);
     try {
-      const res = await projectsAPI.getAll();
-      setProjects(res.data || []);
-    } catch (error) {
+      const response = await projectsAPI.getAll();
+      setProjects(response.data || []);
+    } catch (err) {
+      setError('Failed to load projects: ' + (err.message || err));
       setProjects([]);
+    } finally {
+      setLoading(false);
     }
   };
-
-  useEffect(() => {
-    loadProjects();
-  }, []);
 
   const resetForm = ({ clearFeedback = true } = {}) => {
     setEditing(null);

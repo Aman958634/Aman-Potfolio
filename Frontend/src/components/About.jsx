@@ -13,7 +13,7 @@ import {
 } from 'react-icons/fa6';
 import { FiArrowUpRight, FiCode } from 'react-icons/fi';
 import { HiMiniSparkles } from 'react-icons/hi2';
-import { resolveImageUrl, sectionsAPI } from '../utils/api';
+import { resolveImageUrl, sectionsAPI } from '../services/api';
 
 const isRenderableImageSource = (imagePath) => {
   if (!imagePath || typeof imagePath !== 'string') {

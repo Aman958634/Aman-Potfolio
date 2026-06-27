@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { testimonialsAPI } from '../utils/api';
+import { testimonialsAPI } from '../services/api';
 
 const Testimonials = () => {
   const [reviews, setReviews] = useState([]);
