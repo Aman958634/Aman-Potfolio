@@ -66,20 +66,46 @@ export const getAllSections = async (req, res) => {
 export const getSectionBySlug = async (req, res) => {
   try {
     const { slug } = req.params;
+    console.log('GET /api/sections/' + slug + ' called');
     const connection = await pool.getConnection();
     const [sections] = await connection.query('SELECT * FROM sections WHERE slug = ?', [slug]);
-    connection.release();
 
     if (sections.length === 0) {
-      return res.status(404).json({ message: 'Section not found' });
+      console.log('About section missing, creating default record for slug:', slug);
+      const defaultData = {
+        slug,
+        title: slug === 'about' ? 'About me' : slug,
+        subtitle: slug === 'about' ? 'Full Stack Developer' : '',
+        content: slug === 'about' ? 'This section is under construction.' : '',
+        metadata: JSON.stringify({ profileTitle: 'Full Stack Developer', profileName: 'Amanulla', profileDescription: 'Building modern portfolios.', cvLabel: 'Download CV', cvLink: '/resume.pdf' }),
+        image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=900&q=80',
+      };
+
+      await connection.query(
+        `INSERT INTO sections (slug, title, subtitle, content, metadata, image)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [defaultData.slug, defaultData.title, defaultData.subtitle, defaultData.content, defaultData.metadata, defaultData.image]
+      );
+
+      const [createdSections] = await connection.query('SELECT * FROM sections WHERE slug = ?', [slug]);
+      connection.release();
+      const createdSection = createdSections[0];
+      console.log('About data:', createdSection);
+      return res.json({
+        ...normalizeSectionImage(createdSection),
+        metadata: parseMetadata(createdSection),
+      });
     }
 
     const section = sections[0];
+    connection.release();
+    console.log('About data:', section);
     res.json({
       ...normalizeSectionImage(section),
       metadata: parseMetadata(section),
     });
   } catch (error) {
+    console.error('Error fetching section by slug:', error);
     res.status(500).json({ message: error.message });
   }
 };

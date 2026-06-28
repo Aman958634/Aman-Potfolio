@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { resolveImageUrl, sectionsAPI, uploadAPI } from '../services/api';
+import { API_URL, resolveImageUrl, sectionsAPI, uploadAPI } from '../services/api';
 
 const inputCls =
   'mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-400/20 transition';
@@ -54,6 +54,7 @@ const AdminAboutAdmin = () => {
   const [error, setError] = useState('');
 
   const loadSection = async () => {
+    console.log('Fetching About:', API_URL);
     setLoading(true);
     try {
       const { data } = await sectionsAPI.getBySlug('about');

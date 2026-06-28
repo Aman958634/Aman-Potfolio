@@ -44,16 +44,19 @@ const allowedOrigins = process.env.NODE_ENV === 'production'
     'http://127.0.0.1:5174',
   ];
 
-app.use(cors({
+const corsOptions = {
   origin: (origin, callback) => {
-    if (!origin) return callback(null, true);
+    if (!origin) return callback(null, true); // allow server-to-server or same-origin requests without origin
     if (allowedOrigins.indexOf(origin) !== -1) return callback(null, true);
-    if (/^https:\/\/[^/]+\.vercel\.app$/.test(origin)) return callback(null, true);
     return callback(new Error('CORS policy: Origin not allowed'));
   },
   credentials: true,
-}));
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+};
 
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
