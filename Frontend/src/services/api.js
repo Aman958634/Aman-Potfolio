@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { useCallback, useEffect, useState } from 'react';
 
-export const API_URL = 'https://aman-potfolio-production.up.railway.app/api';
+export const API_URL = import.meta.env.VITE_API_URL || 'https://aman-potfolio-production.up.railway.app/api';
 export const API_HOST = API_URL.replace(/\/api$/, '');
 
 const api = axios.create({
