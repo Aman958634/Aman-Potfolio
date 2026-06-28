@@ -6,45 +6,51 @@ const normalizeEmail = (value) => String(value || '').trim().toLowerCase();
 
 export const loginAdmin = async (req, res) => {
   try {
-    const email = normalizeEmail(req.body?.email);
-    const password = String(req.body?.password ?? '');
+    console.log('===== LOGIN START =====');
+    console.log('BODY:', req.body);
 
-    if (!email || !password) {
-      return res.status(400).json({ success: false, error: 'Email and password are required' });
+    const { email, password } = req.body || {};
+    const normalizedEmail = normalizeEmail(email);
+    const normalizedPassword = String(password ?? '');
+
+    console.log('EMAIL:', normalizedEmail);
+    console.log('PASSWORD PROVIDED:', normalizedPassword ? true : false);
+
+    if (!normalizedEmail || !normalizedPassword) {
+      return res.status(400).json({ success: false, message: 'Email and password are required' });
     }
 
-    const [rows] = await pool.query('SELECT * FROM admins WHERE email = ? LIMIT 1', [email]);
-    let admin = rows[0];
+    const [users] = await pool.query('SELECT * FROM admins WHERE email = ?', [normalizedEmail]);
 
-    console.log('Login attempt email:', email);
-    console.log('Admin found:', !!admin);
+    console.log('USERS:', users);
 
-    if (!admin) {
-      const hashedPassword = await bcrypt.hash(password, 10);
-      const [result] = await pool.query('INSERT INTO admins (email, password) VALUES (?, ?)', [email, hashedPassword]);
-      admin = { id: result.insertId, email, password: hashedPassword };
-      console.log('Created admin during login for:', email);
+    if (!Array.isArray(users) || users.length === 0) {
+      return res.status(401).json({ success: false, message: 'User not found' });
     }
 
-    const storedPassword = admin?.password || '';
-    const isMatch = storedPassword.startsWith('$2')
-      ? await bcrypt.compare(password, storedPassword)
-      : storedPassword === password;
+    const admin = users[0];
 
-    console.log('Password match:', isMatch);
+    console.log('PASSWORD HASH:', admin.password);
 
-    if (!isMatch) {
-      return res.status(401).json({ success: false, error: 'Invalid credentials' });
+    const valid = await bcrypt.compare(normalizedPassword, admin.password);
+
+    console.log('PASSWORD VALID:', valid);
+
+    if (!valid) {
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
 
     const JWT_SECRET = process.env.JWT_SECRET;
+    console.log('JWT SECRET SET:', Boolean(JWT_SECRET));
+
     if (!JWT_SECRET) {
       console.error('JWT_SECRET is not defined in environment variables.');
-      return res.status(500).json({ success: false, error: 'Server configuration error', stack: 'Missing JWT_SECRET' });
+      return res.status(500).json({ success: false, message: 'Server configuration error', stack: 'Missing JWT_SECRET' });
     }
 
     const token = jwt.sign({ id: admin.id, email: admin.email }, JWT_SECRET, { expiresIn: '1h' });
 
+    console.log('LOGIN SUCCESSFUL for:', normalizedEmail);
     return res.json({ success: true, message: 'Login successful', token });
   } catch (error) {
     console.error('LOGIN ERROR:', error);
