@@ -17,6 +17,7 @@ import analyticsRoutes from './routes/analyticsRoutes.js';
 import settingRoutes from './routes/settingRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import authRoutes from './routes/authRoutes.js';
+console.log('AUTH ROUTES FILE LOADED');
 import debugRoutes from './routes/debugRoutes.js';
 import { errorHandler } from './middleware/auth.js';
 import pool from './config/database.js';
@@ -28,6 +29,9 @@ dotenv.config({ path: path.resolve(__dirname, '..', '.env') });
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+console.log('SERVER FILE:', import.meta.url);
+console.log('PWD:', process.cwd());
 
 // Middleware
 const allowedOrigins = [
@@ -70,6 +74,12 @@ app.use('/api/users', userRoutes);
 
 console.log('Auth routes loaded');
 app.use('/api/auth', authRoutes);
+
+app._router.stack.forEach((r) => {
+  if (r.route) {
+    console.log('REGISTERED ROUTE:', Object.keys(r.route.methods).join(',').toUpperCase(), r.route.path);
+  }
+});
 
 app.post('/api/debug/test-auth', async (req, res) => {
   return res.json({
