@@ -3,8 +3,8 @@ import { loginAdmin, seedAdmin } from '../controllers/authController.js';
 
 const router = Router();
 
-router.get('/test', (req, res) => {
-  res.json({ success: true, route: 'auth working' });
+router.post('/test', (req, res) => {
+  return res.json({ success: true, message: 'auth route works' });
 });
 
 router.post('/login', loginAdmin);

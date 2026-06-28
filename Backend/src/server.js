@@ -1,6 +1,5 @@
 import express from 'express';
 import cors from 'cors';
-import bodyParser from 'body-parser';
 import dotenv from 'dotenv';
 import multer from 'multer';
 import path from 'path';
@@ -32,41 +31,30 @@ const PORT = process.env.PORT || 5000;
 
 // Middleware
 const allowedOrigins = [
-  'https://aman-potfolio-230yp3hw8-amanullaathaniya-3992s-projects.vercel.app',
   'https://aman-potfolio-amber.vercel.app',
+  'https://aman-potfolio-230yp3hw8-amanullaathaniya-3992s-projects.vercel.app',
   'http://localhost:5173',
 ];
 
 app.use(cors({
-  origin: function(origin, callback) {
-    console.log('Request Origin:', origin);
-
-    if (!origin) return callback(null, true);
-
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
-
-    return callback(new Error('Not allowed by CORS'));
-  },
+  origin: allowedOrigins,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: [
     'Content-Type',
-    'Authorization',
-    'X-Requested-With'
+    'Authorization'
   ]
 }));
 
 app.options('*', cors());
 
 app.use((req, res, next) => {
-  console.log('CORS debug:', req.method, req.path, req.headers.origin);
+  console.log(new Date().toISOString(), req.method, req.originalUrl);
   next();
 });
 
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Routes
 app.use('/api/projects', projectRoutes);
@@ -79,8 +67,16 @@ app.use('/api/testimonials', testimonialRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/settings', settingRoutes);
 app.use('/api/users', userRoutes);
+
 console.log('Auth routes loaded');
 app.use('/api/auth', authRoutes);
+
+app.post('/api/debug/test-auth', async (req, res) => {
+  return res.json({
+    success: true,
+    message: 'auth route works'
+  });
+});
 
 app.get('/api/debug/cors', (req, res) => {
   res.json({

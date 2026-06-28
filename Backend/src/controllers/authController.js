@@ -1,21 +1,18 @@
 import pool from '../config/database.js';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
-import { Router } from 'express';
 
 const normalizeEmail = (value) => String(value || '').trim().toLowerCase();
 
-const router = Router();
-
 export const loginAdmin = async (req, res) => {
-  const email = normalizeEmail(req.body?.email);
-  const password = String(req.body?.password ?? '');
-
-  if (!email || !password) {
-    return res.status(400).json({ message: 'Email and password are required' });
-  }
-
   try {
+    const email = normalizeEmail(req.body?.email);
+    const password = String(req.body?.password ?? '');
+
+    if (!email || !password) {
+      return res.status(400).json({ success: false, error: 'Email and password are required' });
+    }
+
     const [rows] = await pool.query('SELECT * FROM admins WHERE email = ? LIMIT 1', [email]);
     let admin = rows[0];
 
@@ -37,51 +34,41 @@ export const loginAdmin = async (req, res) => {
     console.log('Password match:', isMatch);
 
     if (!isMatch) {
-      return res.status(401).json({ message: 'Invalid credentials' });
+      return res.status(401).json({ success: false, error: 'Invalid credentials' });
     }
 
     const JWT_SECRET = process.env.JWT_SECRET;
     if (!JWT_SECRET) {
       console.error('JWT_SECRET is not defined in environment variables.');
-      return res.status(500).json({ message: 'Server configuration error' });
+      return res.status(500).json({ success: false, error: 'Server configuration error', stack: 'Missing JWT_SECRET' });
     }
 
     const token = jwt.sign({ id: admin.id, email: admin.email }, JWT_SECRET, { expiresIn: '1h' });
 
     return res.json({ success: true, message: 'Login successful', token });
   } catch (error) {
-    console.error('Login error:', error.message);
-    return res.status(500).json({ message: 'Server error' });
+    console.error('LOGIN ERROR:', error);
+    return res.status(500).json({ success: false, error: error.message, stack: error.stack });
   }
 };
-
-export const login = loginAdmin;
 
 export const seedAdmin = async (req, res) => {
   try {
     const email = normalizeEmail(req.body?.email || process.env.ADMIN_EMAIL || 'admin@example.com');
     const password = String(req.body?.password || process.env.ADMIN_PASSWORD || 'adminpassword');
+
     const [rows] = await pool.query('SELECT COUNT(*) AS count FROM admins WHERE email = ?', [email]);
 
     if (rows[0].count === 0) {
       const hashedPassword = await bcrypt.hash(password, 10);
       await pool.query('INSERT INTO admins (email, password) VALUES (?, ?)', [email, hashedPassword]);
       console.log('Default admin user created via seed endpoint.');
-      return res.status(201).json({ message: 'Default admin user created.' });
+      return res.status(201).json({ success: true, message: 'Default admin user created.' });
     }
 
-    return res.status(200).json({ message: 'Admin user already exists.' });
+    return res.status(200).json({ success: true, message: 'Admin user already exists.' });
   } catch (error) {
-    console.error('Seed admin error:', error.message);
-    return res.status(500).json({ message: 'Server error during admin seeding.' });
+    console.error('SEED ADMIN ERROR:', error);
+    return res.status(500).json({ success: false, error: error.message, stack: error.stack });
   }
 };
-
-router.get('/test', (req, res) => {
-  res.json({ success: true, route: 'auth working' });
-});
-
-router.post('/login', loginAdmin);
-router.post('/seed', seedAdmin);
-
-export default router;
