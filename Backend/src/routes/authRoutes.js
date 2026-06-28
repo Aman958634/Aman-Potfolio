@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { login, seedAdmin } from '../controllers/authController.js';
 
+console.log('AUTH ROUTES FILE LOADED', import.meta.url);
+
 const router = Router();
 
 router.get('/test', (req, res) => {

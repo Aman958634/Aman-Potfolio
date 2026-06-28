@@ -4,6 +4,8 @@ import bcrypt from 'bcryptjs';
 
 const normalizeEmail = (value) => String(value || '').trim().toLowerCase();
 
+console.log('AUTH CONTROLLER LOADED', import.meta.url);
+
 export const loginAdmin = async (req, res) => {
   try {
     console.log('===== LOGIN START =====');
