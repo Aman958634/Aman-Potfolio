@@ -6,6 +6,7 @@ export const API_HOST = API_URL.replace(/\/api$/, '');
 
 const api = axios.create({
   baseURL: API_URL,
+  withCredentials: false,
   headers: {
     'Content-Type': 'application/json',
   },

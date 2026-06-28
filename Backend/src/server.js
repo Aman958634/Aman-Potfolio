@@ -40,22 +40,59 @@ const allowedOrigins = [
   'http://localhost:5173',
 ];
 
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+
+  console.log(
+    'REQUEST:',
+    req.method,
+    req.originalUrl,
+    'ORIGIN:',
+    origin
+  );
+
+  if (origin && allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+  }
+
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+
+  res.on('finish', () => {
+    console.log(
+      'RESPONSE:',
+      req.method,
+      req.originalUrl,
+      'STATUS:',
+      res.statusCode,
+      'ORIGIN:',
+      origin,
+      'HEADERS:',
+      JSON.stringify(res.getHeaders())
+    );
+  });
+
+  next();
+});
+
 app.use(cors({
-  origin: allowedOrigins,
+  origin: function(origin, callback) {
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.log('Blocked Origin:', origin);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: [
-    'Content-Type',
-    'Authorization'
-  ]
+  methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
+  allowedHeaders: ['Content-Type','Authorization']
 }));
 
 app.options('*', cors());
-
-app.use((req, res, next) => {
-  console.log(new Date().toISOString(), req.method, req.originalUrl);
-  next();
-});
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -98,6 +135,20 @@ app.get('/api/debug/cors', (req, res) => {
   });
 });
 
+app.get('/api/cors-test', (req, res) => {
+  res.json({
+    success: true,
+    origin: req.headers.origin
+  });
+});
+
+app.get('/api/projects-test', (req, res) => {
+  res.json({
+    success: true,
+    route: 'projects-test'
+  });
+});
+
 app.use('/api/debug', debugRoutes);
 
 // Health check route
@@ -115,7 +166,26 @@ app.use((req, res) => {
 });
 
 // Error handler
-app.use(errorHandler);
+app.use((err, req, res, next) => {
+  console.error('ERROR HANDLER:', err);
+
+  if (!res.headersSent) {
+    res.header('Access-Control-Allow-Origin', req.headers.origin || '');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+  }
+
+  if (res.headersSent) {
+    return next(err);
+  }
+
+  const status = err.status || 500;
+  res.status(status).json({
+    success: false,
+    message: err.message || 'Internal server error'
+  });
+});
 
 // Start server
 const startServer = (startPort, attempts = 10) => {
