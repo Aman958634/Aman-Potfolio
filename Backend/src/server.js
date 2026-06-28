@@ -60,19 +60,7 @@ app.use(cors({
 app.options('*', cors());
 
 app.use((req, res, next) => {
-  res.header(
-    'Access-Control-Allow-Origin',
-    'https://aman-potfolio-amber.vercel.app'
-  );
-  res.header('Access-Control-Allow-Credentials', 'true');
-  res.header(
-    'Access-Control-Allow-Headers',
-    'Origin, X-Requested-With, Content-Type, Accept, Authorization'
-  );
-  res.header(
-    'Access-Control-Allow-Methods',
-    'GET,POST,PUT,PATCH,DELETE,OPTIONS'
-  );
+  console.log('CORS debug:', req.method, req.path, req.headers.origin);
   next();
 });
 
@@ -92,6 +80,17 @@ app.use('/api/settings', settingRoutes);
 app.use('/api/users', userRoutes);
 console.log('Auth routes loaded');
 app.use('/api/auth', authRoutes);
+
+app.get('/api/debug/cors', (req, res) => {
+  res.json({
+    success: true,
+    path: req.path,
+    method: req.method,
+    origin: req.headers.origin,
+    cors: true
+  });
+});
+
 app.use('/api/debug', debugRoutes);
 
 // Health check route
