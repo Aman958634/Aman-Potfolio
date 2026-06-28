@@ -52,6 +52,8 @@ export const loginAdmin = async (req, res) => {
   }
 };
 
+export const login = loginAdmin;
+
 export const seedAdmin = async (req, res) => {
   try {
     const email = normalizeEmail(req.body?.email || process.env.ADMIN_EMAIL || 'admin@example.com');
