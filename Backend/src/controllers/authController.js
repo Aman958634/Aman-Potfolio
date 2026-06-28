@@ -40,8 +40,13 @@ export const loginAdmin = async (req, res) => {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    const secret = process.env.JWT_SECRET || 'dev-secret-key';
-    const token = jwt.sign({ id: admin.id, email: admin.email }, secret, { expiresIn: '1h' });
+    const JWT_SECRET = process.env.JWT_SECRET;
+    if (!JWT_SECRET) {
+      console.error('JWT_SECRET is not defined in environment variables.');
+      return res.status(500).json({ message: 'Server configuration error' });
+    }
+
+    const token = jwt.sign({ id: admin.id, email: admin.email }, JWT_SECRET, { expiresIn: '1h' });
 
     return res.json({ success: true, message: 'Login successful', token });
   } catch (error) {
