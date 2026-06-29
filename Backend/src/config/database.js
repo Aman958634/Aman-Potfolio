@@ -4,6 +4,8 @@ import bcrypt from 'bcryptjs';
 
 dotenv.config();
 
+const ABOUT_PROFILE_IMAGE = '/uploads/1782318165464.png';
+
 const pool = mysql.createPool({
   host: process.env.DB_HOST,
   port: process.env.DB_PORT,
@@ -49,7 +51,7 @@ const defaultSections = [
       projectsCompleted: '15+',
       happyClients: '10+',
     },
-    image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=1200&q=80',
+    image: ABOUT_PROFILE_IMAGE,
   },
   {
     slug: 'contact',

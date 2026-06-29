@@ -26,7 +26,14 @@ const isRenderableImageSource = (imagePath) => {
   return /^(https?:\/\/|data:|\/|uploads\/|\.\/|\.\.\/)/i.test(trimmed);
 };
 
-const getFallbackImage = () => 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=1200&q=80';
+const ABOUT_PROFILE_IMAGE = '/uploads/1782318165464.png';
+const OLD_ABOUT_STOCK_IMAGES = [
+  'images.unsplash.com/photo-1507003211169',
+  'images.unsplash.com/photo-1494790108377',
+];
+
+const isOldAboutStockImage = (imagePath = '') => OLD_ABOUT_STOCK_IMAGES.some((stockImage) => imagePath.includes(stockImage));
+const getFallbackImage = () => ABOUT_PROFILE_IMAGE;
 
 const fadeUp = {
   hidden: { opacity: 0, y: 18 },
@@ -81,9 +88,10 @@ const About = () => {
   const title = section?.title || 'Hi, I’m Amanulla';
   const subtitle = section?.subtitle || 'Full Stack Developer';
   const content = section?.content || 'I build modern, scalable, and user-friendly web applications with clean code and exceptional digital experiences.';
-  const profileImage =
-    resolveImageUrl(isRenderableImageSource(section?.image) ? section.image.trim() : getFallbackImage()) ||
-    getFallbackImage();
+  const aboutImage = isRenderableImageSource(section?.image) && !isOldAboutStockImage(section.image)
+    ? section.image.trim()
+    : getFallbackImage();
+  const profileImage = resolveImageUrl(aboutImage) || resolveImageUrl(getFallbackImage());
   const profileTitle = section?.metadata?.profileTitle || 'FULL STACK DEVELOPER';
   const profileName = section?.metadata?.profileName || 'Amanulla';
   const profileDescription = section?.metadata?.profileDescription || 'Available for freelance projects and long-term product development.';
@@ -224,7 +232,7 @@ const About = () => {
                     src={profileImage}
                     alt="Profile"
                     onError={(event) => {
-                      event.currentTarget.src = getFallbackImage();
+                      event.currentTarget.src = resolveImageUrl(getFallbackImage());
                     }}
                     className="h-[380px] w-full object-cover object-top sm:h-[430px]"
                   />

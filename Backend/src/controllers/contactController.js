@@ -14,8 +14,9 @@ const getSmtpConfig = () => {
   const user = getEnvValue('SMTP_USER', 'EMAIL_USER', 'GMAIL_USER', 'MAIL_USER');
   const pass = getEnvValue('SMTP_PASS', 'EMAIL_PASS', 'GMAIL_PASS', 'MAIL_PASS');
   const host = getEnvValue('SMTP_HOST', 'EMAIL_HOST', 'MAIL_HOST') || 'smtp.gmail.com';
-  const port = Number(getEnvValue('SMTP_PORT', 'EMAIL_PORT', 'MAIL_PORT') || 587);
-  const secure = String(getEnvValue('SMTP_SECURE', 'EMAIL_SECURE', 'MAIL_SECURE')).toLowerCase() === 'true' || port === 465;
+  const isGmail = host.toLowerCase() === 'smtp.gmail.com';
+  const port = isGmail ? 465 : Number(getEnvValue('SMTP_PORT', 'EMAIL_PORT', 'MAIL_PORT') || 587);
+  const secure = isGmail || String(getEnvValue('SMTP_SECURE', 'EMAIL_SECURE', 'MAIL_SECURE')).toLowerCase() === 'true' || port === 465;
 
   return {
     user,
@@ -72,11 +73,10 @@ const createTransporter = () => {
     return null;
   }
 
-  const options = {
+  return nodemailer.createTransport({
     host: smtp.host,
     port: smtp.port,
     secure: smtp.secure,
-    requireTLS: !smtp.secure,
     auth: {
       user: smtp.user,
       pass: smtp.pass,
@@ -87,13 +87,7 @@ const createTransporter = () => {
     tls: {
       rejectUnauthorized: false,
     },
-  };
-
-  if (smtp.host === 'smtp.gmail.com') {
-    options.service = 'gmail';
-  }
-
-  return nodemailer.createTransport(options);
+  });
 };
 
 const getEmailConfigStatus = () => {

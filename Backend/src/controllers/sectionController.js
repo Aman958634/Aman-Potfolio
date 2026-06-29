@@ -1,5 +1,11 @@
 import pool from '../config/database.js';
 
+const ABOUT_PROFILE_IMAGE = '/uploads/1782318165464.png';
+const OLD_ABOUT_STOCK_IMAGES = [
+  'images.unsplash.com/photo-1507003211169',
+  'images.unsplash.com/photo-1494790108377',
+];
+
 const isRenderableImageSource = (imagePath) => {
   if (!imagePath || typeof imagePath !== 'string') {
     return false;
@@ -17,15 +23,25 @@ const getFallbackImage = (slug = '', title = '') => {
   const normalized = `${slug} ${title}`.toLowerCase();
 
   if (normalized.includes('about')) {
-    return 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=900&q=80';
+    return ABOUT_PROFILE_IMAGE;
   }
 
-  return 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=900&q=80';
+  return ABOUT_PROFILE_IMAGE;
+};
+
+const isOldAboutStockImage = (section) => {
+  if (!String(section?.slug || section?.title || '').toLowerCase().includes('about')) {
+    return false;
+  }
+
+  return OLD_ABOUT_STOCK_IMAGES.some((stockImage) => String(section?.image || '').includes(stockImage));
 };
 
 const normalizeSectionImage = (section) => ({
   ...section,
-  image: isRenderableImageSource(section?.image) ? section.image.trim() : getFallbackImage(section?.slug, section?.title),
+  image: isRenderableImageSource(section?.image) && !isOldAboutStockImage(section)
+    ? section.image.trim()
+    : getFallbackImage(section?.slug, section?.title),
 });
 
 const sanitizeSectionInput = ({ slug, title, subtitle, content, metadata, image }) => ({
@@ -110,7 +126,7 @@ export const getSectionBySlug = async (req, res) => {
         subtitle: slug === 'about' ? 'Full Stack Developer' : '',
         content: slug === 'about' ? 'This section is under construction.' : '',
         metadata: JSON.stringify({ profileTitle: 'Full Stack Developer', profileName: 'Amanulla', profileDescription: 'Building modern portfolios.', cvLabel: 'Download CV', cvLink: '/resume.pdf' }),
-        image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=900&q=80',
+        image: getFallbackImage(slug, 'about'),
       };
 
       await connection.query(
