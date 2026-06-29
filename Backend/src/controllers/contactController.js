@@ -36,28 +36,6 @@ const getContactRecipient = () => {
   return getEnvValue('CONTACT_TO_EMAIL', 'TO_EMAIL', 'ADMIN_EMAIL', 'RECEIVER_EMAIL') || smtp.user || 'anovatechnologies5@gmail.com';
 };
 
-const escapeHtml = (value = '') => String(value)
-  .replace(/&/g, '&amp;')
-  .replace(/</g, '&lt;')
-  .replace(/>/g, '&gt;')
-  .replace(/"/g, '&quot;')
-  .replace(/'/g, '&#039;');
-
-const formatDateTime = (value) => {
-  if (!value) return 'Not available';
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return String(value);
-  }
-
-  return date.toLocaleString('en-IN', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-    timeZone: 'Asia/Kolkata',
-  });
-};
-
 const ensureContactsReady = async (connection) => {
   if (contactsSchemaReady) {
     return;
@@ -168,10 +146,8 @@ const sendPortfolioEmail = async ({
   name,
   email,
   phone = '',
-  subject = 'Project inquiry',
+  subject = '',
   message,
-  submittedAt = new Date(),
-  savedAt,
   to,
 }) => {
   const transporter = createTransporter();
@@ -182,97 +158,30 @@ const sendPortfolioEmail = async ({
     throw error;
   }
 
-  const emailSubject = subject?.trim() || 'Project inquiry';
+  const emailSubject = subject || 'Portfolio contact message';
   const smtp = getSmtpConfig();
-  const safeContactId = contactId || 'N/A';
-  const safeName = name?.trim() || 'Portfolio Visitor';
-  const safeEmail = email?.trim() || 'No email provided';
-  const safePhone = phone?.trim() || 'Not provided';
-  const safeMessage = message?.trim() || 'No message provided';
-  const savedDate = formatDateTime(savedAt || submittedAt);
-  const replyHref = safeEmail.includes('@') ? `mailto:${safeEmail}?subject=Re: ${encodeURIComponent(emailSubject)}` : '';
+  const formName = String(name ?? '');
+  const formEmail = String(email ?? '');
+  const formPhone = String(phone ?? '');
+  const formSubject = String(subject ?? '');
+  const formMessage = String(message ?? '');
+  const replyEmail = formEmail.trim();
 
   const info = await transporter.sendMail({
     from: `"${smtp.fromName}" <${smtp.user}>`,
     sender: smtp.user,
     to: to || getContactRecipient(),
-    replyTo: safeEmail.includes('@') ? safeEmail : undefined,
-    subject: `New portfolio message from ${safeName}: ${emailSubject}`,
+    replyTo: replyEmail.includes('@') ? replyEmail : undefined,
+    subject: emailSubject,
     text: [
-      'New portfolio contact message',
-      'The data below is the exact contact form data saved in the database.',
-      '',
-      `Contact ID: ${safeContactId}`,
-      `Submitted At: ${savedDate}`,
-      `Name: ${safeName}`,
-      `Email: ${safeEmail}`,
-      `Phone: ${safePhone}`,
-      `Subject: ${emailSubject}`,
+      `Name: ${formName}`,
+      `Email: ${formEmail}`,
+      `Phone: ${formPhone}`,
+      `Subject: ${formSubject}`,
       '',
       'Message:',
-      safeMessage,
+      formMessage,
     ].join('\n'),
-    html: `
-      <div style="margin:0;padding:0;background:#f4f7fb;font-family:Arial,Helvetica,sans-serif;color:#111827;">
-        <div style="max-width:720px;margin:0 auto;padding:28px 16px;">
-          <div style="background:#ffffff;border:1px solid #dbe3ef;border-radius:14px;overflow:hidden;">
-            <div style="background:#174ea6;color:#ffffff;padding:24px 26px;">
-              <p style="margin:0 0 8px;font-size:12px;letter-spacing:1.6px;text-transform:uppercase;">New Portfolio Contact Message</p>
-              <h2 style="margin:0;font-size:23px;line-height:1.35;">${escapeHtml(emailSubject)}</h2>
-              <p style="margin:8px 0 0;font-size:14px;color:#dbeafe;">From ${escapeHtml(safeName)} &lt;${escapeHtml(safeEmail)}&gt;</p>
-            </div>
-            <div style="padding:24px 26px;">
-              <p style="margin:0 0 18px;color:#475569;font-size:14px;line-height:1.6;">
-                Ye contact form se submit hua exact data hai. Same data <strong>contacts</strong> table me save hua hai.
-              </p>
-
-              <table style="width:100%;border-collapse:collapse;font-size:15px;line-height:1.6;border:1px solid #e2e8f0;">
-                <tr>
-                  <td colspan="2" style="padding:12px 14px;background:#f8fafc;color:#334155;font-weight:bold;text-transform:uppercase;letter-spacing:1px;font-size:12px;border-bottom:1px solid #e2e8f0;">Submitted Form Data</td>
-                </tr>
-                <tr>
-                  <td style="width:150px;padding:11px 14px;color:#64748b;font-weight:bold;border-bottom:1px solid #e2e8f0;">Name</td>
-                  <td style="padding:11px 14px;color:#111827;border-bottom:1px solid #e2e8f0;">${escapeHtml(safeName)}</td>
-                </tr>
-                <tr>
-                  <td style="width:150px;padding:11px 14px;color:#64748b;font-weight:bold;border-bottom:1px solid #e2e8f0;">Email</td>
-                  <td style="padding:11px 14px;color:#111827;border-bottom:1px solid #e2e8f0;">
-                    <a href="mailto:${escapeHtml(safeEmail)}" style="color:#2563eb;text-decoration:none;">${escapeHtml(safeEmail)}</a>
-                  </td>
-                </tr>
-                <tr>
-                  <td style="width:150px;padding:11px 14px;color:#64748b;font-weight:bold;border-bottom:1px solid #e2e8f0;">Phone</td>
-                  <td style="padding:11px 14px;color:#111827;border-bottom:1px solid #e2e8f0;">${escapeHtml(safePhone)}</td>
-                </tr>
-                <tr>
-                  <td style="width:150px;padding:11px 14px;color:#64748b;font-weight:bold;border-bottom:1px solid #e2e8f0;">Subject</td>
-                  <td style="padding:11px 14px;color:#111827;border-bottom:1px solid #e2e8f0;">${escapeHtml(emailSubject)}</td>
-                </tr>
-                <tr>
-                  <td style="width:150px;padding:11px 14px;color:#64748b;font-weight:bold;border-bottom:1px solid #e2e8f0;">Contact ID</td>
-                  <td style="padding:11px 14px;color:#111827;border-bottom:1px solid #e2e8f0;">#${escapeHtml(safeContactId)}</td>
-                </tr>
-                <tr>
-                  <td style="width:150px;padding:11px 14px;color:#64748b;font-weight:bold;">Submitted At</td>
-                  <td style="padding:11px 14px;color:#111827;">${escapeHtml(savedDate)}</td>
-                </tr>
-              </table>
-
-              <div style="margin-top:20px;padding:18px;border-radius:10px;background:#f8fafc;border:1px solid #e2e8f0;border-left:4px solid #174ea6;">
-                <p style="margin:0 0 10px;color:#334155;font-size:12px;font-weight:bold;text-transform:uppercase;letter-spacing:1px;">Message</p>
-                <p style="white-space:pre-wrap;margin:0;color:#111827;font-size:16px;line-height:1.7;">${escapeHtml(safeMessage)}</p>
-              </div>
-
-              ${replyHref ? `
-                <a href="${escapeHtml(replyHref)}" style="display:inline-block;margin-top:22px;background:#174ea6;color:#ffffff;text-decoration:none;border-radius:8px;padding:12px 18px;font-weight:bold;">
-                  Reply to ${escapeHtml(safeName)}
-                </a>
-              ` : ''}
-            </div>
-          </div>
-        </div>
-      </div>
-    `,
   });
 
   if (info.rejected?.length) {
@@ -371,21 +280,22 @@ export const submitContact = async (req, res) => {
       name,
       email,
       phone = '',
-      subject = 'Project inquiry',
+      subject = '',
       message,
     } = req.body;
 
-    const normalizedName = String(name || '').trim();
-    const normalizedEmail = String(email || '').trim().toLowerCase();
-    const normalizedMessage = String(message || '').trim();
-    const normalizedPhone = String(phone || '').trim();
-    const normalizedSubject = String(subject || '').trim() || 'Project inquiry';
+    const formName = String(name ?? '');
+    const formEmail = String(email ?? '');
+    const formMessage = String(message ?? '');
+    const formPhone = String(phone ?? '');
+    const formSubject = String(subject ?? '');
+    const emailForValidation = formEmail.trim();
 
-    if (!normalizedName || !normalizedEmail || !normalizedMessage) {
+    if (!formName.trim() || !emailForValidation || !formMessage.trim()) {
       return res.status(400).json({ message: 'Name, email, and message are required.' });
     }
 
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailForValidation)) {
       return res.status(400).json({ message: 'Please enter a valid email address.' });
     }
 
@@ -394,7 +304,7 @@ export const submitContact = async (req, res) => {
 
     const [result] = await connection.query(
       'INSERT INTO contacts (name, email, phone, subject, message, email_status) VALUES (?, ?, ?, ?, ?, ?)',
-      [normalizedName, normalizedEmail, normalizedPhone, normalizedSubject, normalizedMessage, 'queued']
+      [formName, formEmail, formPhone, formSubject, formMessage, 'queued']
     );
 
     const contactId = result.insertId;
@@ -406,11 +316,11 @@ export const submitContact = async (req, res) => {
 
     sendContactEmailInBackground(contactId, {
       contactId,
-      name: normalizedName,
-      email: normalizedEmail,
-      phone: normalizedPhone,
-      subject: normalizedSubject,
-      message: normalizedMessage,
+      name: formName,
+      email: formEmail,
+      phone: formPhone,
+      subject: formSubject,
+      message: formMessage,
       submittedAt: new Date(),
     });
 
