@@ -231,7 +231,7 @@ const mapContactRowToEmailPayload = (contact) => ({
   submittedAt: contact.created_at,
 });
 
-const sendContactEmailWithRetry = async (contactId, fallbackPayload) => {
+const sendContactEmailWithRetry = async (contactId) => {
   let lastError = null;
 
   for (let attempt = 0; attempt < EMAIL_RETRY_DELAYS_MS.length; attempt += 1) {
@@ -239,10 +239,11 @@ const sendContactEmailWithRetry = async (contactId, fallbackPayload) => {
 
     try {
       const savedContact = await getSavedContact(contactId);
-      const emailPayload = savedContact
-        ? mapContactRowToEmailPayload(savedContact)
-        : fallbackPayload;
-      const info = await sendPortfolioEmail(emailPayload);
+      if (!savedContact) {
+        throw new Error(`Saved contact row not found for id ${contactId}`);
+      }
+
+      const info = await sendPortfolioEmail(mapContactRowToEmailPayload(savedContact));
 
       console.log('Contact Gmail delivered:', {
         contactId,
@@ -263,8 +264,8 @@ const sendContactEmailWithRetry = async (contactId, fallbackPayload) => {
   throw lastError;
 };
 
-const sendContactEmailInBackground = (contactId, fallbackPayload) => {
-  void sendContactEmailWithRetry(contactId, fallbackPayload).catch((error) => {
+const sendContactEmailInBackground = (contactId) => {
+  void sendContactEmailWithRetry(contactId).catch((error) => {
     console.error('Contact Gmail background delivery failed:', {
       contactId,
       error: error?.code || error?.responseCode || error?.message || 'Unknown email error',
@@ -314,15 +315,7 @@ export const submitContact = async (req, res) => {
       connection = null;
     }
 
-    sendContactEmailInBackground(contactId, {
-      contactId,
-      name: formName,
-      email: formEmail,
-      phone: formPhone,
-      subject: formSubject,
-      message: formMessage,
-      submittedAt: new Date(),
-    });
+    sendContactEmailInBackground(contactId);
 
     return res.status(201).json({
       message: 'Message saved successfully. Gmail notification is being sent.',

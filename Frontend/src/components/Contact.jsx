@@ -121,7 +121,15 @@ const Contact = () => {
     };
 
     try {
-      const response = await contactAPI.submit(formData);
+      const payload = {
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        subject: formData.subject,
+        message: formData.message,
+      };
+
+      const response = await contactAPI.submit(payload);
 
       if (response.data?.saved !== true) {
         throw new Error(response.data?.message || 'Message could not be saved.');
