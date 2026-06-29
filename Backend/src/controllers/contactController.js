@@ -363,13 +363,24 @@ const sendContactEmailWithRetry = async (contactId) => {
   throw lastError;
 };
 
-const sendContactEmailInBackground = (contactId) => {
-  void sendContactEmailWithRetry(contactId).catch((error) => {
-    console.error('Contact Gmail background delivery failed:', {
-      contactId,
-      error: error?.code || error?.responseCode || error?.message || 'Unknown email error',
-    });
-  });
+const getEmailErrorMessage = (error) => (
+  error?.code || error?.responseCode || error?.message || 'Unknown email error'
+);
+
+const getEmailFailureHelp = (error) => {
+  if (error?.code === 'SMTP_NOT_CONFIGURED') {
+    return 'Add SMTP_USER and SMTP_PASS in Railway Variables, then redeploy.';
+  }
+
+  if (error?.code === 'EAUTH' || error?.responseCode === 535) {
+    return 'Gmail login failed. Use a Gmail app password in SMTP_PASS, not the normal Gmail password.';
+  }
+
+  if (error?.code === 'SMTP_RECIPIENT_REJECTED') {
+    return 'Gmail rejected the receiver email. Check CONTACT_TO_EMAIL.';
+  }
+
+  return 'Check SMTP_USER, SMTP_PASS Gmail app password, CONTACT_TO_EMAIL, and Railway deploy logs.';
 };
 
 export const submitContact = async (req, res) => {
@@ -414,20 +425,41 @@ export const submitContact = async (req, res) => {
       connection = null;
     }
 
-    sendContactEmailInBackground(contactId);
+    try {
+      const info = await sendContactEmailWithRetry(contactId);
 
-    return res.status(201).json({
-      message: 'Message saved successfully. Gmail notification is being sent.',
-      saved: true,
-      contactId,
-      emailQueued: true,
-      emailDelivered: false,
-      emailConfigured: getEmailConfigStatus().configured,
-    });
+      return res.status(201).json({
+        message: 'Message saved successfully and sent to Gmail.',
+        saved: true,
+        contactId,
+        emailQueued: false,
+        emailDelivered: true,
+        emailMessageId: info.messageId,
+        emailAccepted: info.accepted,
+        emailConfigured: getEmailConfigStatus().configured,
+      });
+    } catch (emailError) {
+      const emailErrorMessage = getEmailErrorMessage(emailError);
+      console.error('Message saved but Gmail delivery failed:', {
+        contactId,
+        error: emailErrorMessage,
+      });
+
+      return res.status(202).json({
+        message: 'Message saved in admin panel, but Gmail was not delivered. Check email settings.',
+        saved: true,
+        contactId,
+        emailQueued: false,
+        emailDelivered: false,
+        emailError: emailErrorMessage,
+        emailHelp: getEmailFailureHelp(emailError),
+        emailConfigured: getEmailConfigStatus().configured,
+      });
+    }
   } catch (error) {
     res.status(500).json({
       message: error.message,
-      error: error.code || error.responseCode || error.message,
+      error: getEmailErrorMessage(error),
       saved: false,
       emailDelivered: false,
       emailConfigured: getEmailConfigStatus().configured,
@@ -477,7 +509,35 @@ export const testEmail = async (req, res) => {
       message: error.code === 'SMTP_NOT_CONFIGURED'
         ? 'Email is not configured. Add SMTP_USER and SMTP_PASS in Railway Variables, then redeploy.'
         : 'Gmail test failed. Check SMTP_USER, SMTP_PASS Gmail app password, and CONTACT_TO_EMAIL in Railway.',
-      error: error.code || error.responseCode || error.message,
+      error: getEmailErrorMessage(error),
+      emailHelp: getEmailFailureHelp(error),
+      emailConfig: getEmailConfigStatus(),
+    });
+  }
+};
+
+export const resendContactEmail = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const info = await sendContactEmailWithRetry(id);
+
+    res.json({
+      success: true,
+      message: 'Saved message sent to Gmail successfully.',
+      contactId: id,
+      emailDelivered: true,
+      messageId: info.messageId,
+      accepted: info.accepted,
+    });
+  } catch (error) {
+    res.status(error.code === 'SMTP_NOT_CONFIGURED' ? 503 : 502).json({
+      success: false,
+      message: 'Saved message could not be sent to Gmail.',
+      contactId: id,
+      emailDelivered: false,
+      error: getEmailErrorMessage(error),
+      emailHelp: getEmailFailureHelp(error),
       emailConfig: getEmailConfigStatus(),
     });
   }

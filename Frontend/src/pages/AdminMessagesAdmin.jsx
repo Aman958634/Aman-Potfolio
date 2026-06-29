@@ -6,6 +6,7 @@ const AdminMessagesAdmin = () => {
   const [feedback, setFeedback] = useState('');
   const [emailConfig, setEmailConfig] = useState(null);
   const [testingEmail, setTestingEmail] = useState(false);
+  const [resendingId, setResendingId] = useState(null);
 
   const fetch = async () => {
     try {
@@ -68,6 +69,41 @@ const AdminMessagesAdmin = () => {
     }
   };
 
+  const handleResendEmail = async (id) => {
+    setResendingId(id);
+    setFeedback('');
+    setEmailConfig(null);
+
+    try {
+      const response = await contactAPI.resendEmail(id);
+      setFeedback(response.data?.message || 'Saved message sent to Gmail successfully.');
+      await fetch();
+    } catch (error) {
+      const serverData = error.response?.data;
+      setFeedback(
+        serverData?.emailHelp
+          ? `${error.message} ${serverData.emailHelp}`
+          : error.message || 'Unable to resend Gmail.'
+      );
+      setEmailConfig(serverData?.emailConfig || null);
+      await fetch();
+    } finally {
+      setResendingId(null);
+    }
+  };
+
+  const getEmailStatusLabel = (message) => {
+    if (message.email_status === 'sent') return 'Gmail sent';
+    if (message.email_status === 'failed') return 'Gmail failed';
+    return 'Gmail pending';
+  };
+
+  const getEmailStatusClass = (message) => {
+    if (message.email_status === 'sent') return 'border-emerald-200 bg-emerald-50 text-emerald-700';
+    if (message.email_status === 'failed') return 'border-red-200 bg-red-50 text-red-700';
+    return 'border-amber-200 bg-amber-50 text-amber-700';
+  };
+
   return (
     <div className="min-h-screen bg-slate-100 p-8">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -115,9 +151,28 @@ const AdminMessagesAdmin = () => {
                     <div><span className="font-semibold text-slate-800">Phone:</span> {m.phone || 'Not provided'}</div>
                     <div><span className="font-semibold text-slate-800">Subject:</span> {m.subject || 'Project inquiry'}</div>
                   </div>
+                  <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+                    <span className={`rounded-full border px-3 py-1 font-semibold ${getEmailStatusClass(m)}`}>
+                      {getEmailStatusLabel(m)}
+                    </span>
+                    {m.email_sent_at && <span className="text-slate-500">Sent: {new Date(m.email_sent_at).toLocaleString()}</span>}
+                  </div>
+                  {m.email_error && (
+                    <div className="mt-2 rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-700">
+                      {m.email_error}
+                    </div>
+                  )}
                   <div className="mt-3 whitespace-pre-wrap text-slate-700">{m.message}</div>
                 </div>
-                <div>
+                <div className="flex shrink-0 flex-col items-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleResendEmail(m.id)}
+                    disabled={resendingId === m.id}
+                    className="rounded-full bg-slate-900 px-3 py-1 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {resendingId === m.id ? 'Sending...' : 'Resend Gmail'}
+                  </button>
                   <button onClick={() => handleDelete(m.id)} className="px-3 py-1 text-sm text-red-600">Delete</button>
                 </div>
               </li>

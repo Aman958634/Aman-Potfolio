@@ -231,6 +231,13 @@ contactService.testEmail = async (data = {}) => {
     throw parseApiError(error);
   }
 };
+contactService.resendEmail = async (id) => {
+  try {
+    return await api.post(`/contact/${id}/resend-email`);
+  } catch (error) {
+    throw parseApiError(error);
+  }
+};
 export const testimonialsService = createCrudService('testimonials');
 export const usersService = createCrudService('users');
 export const analyticsService = createCrudService('analytics');
