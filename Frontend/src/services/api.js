@@ -151,6 +151,13 @@ export const servicesService = createCrudService('services');
 export const sectionsService = createCrudService('sections');
 export const settingsService = createCrudService('settings');
 export const contactService = createCrudService('contact');
+contactService.submit = async (data) => {
+  try {
+    return await api.post('/contact', data);
+  } catch (error) {
+    throw parseApiError(error);
+  }
+};
 export const testimonialsService = createCrudService('testimonials');
 export const usersService = createCrudService('users');
 export const analyticsService = createCrudService('analytics');

@@ -97,6 +97,7 @@ const seedProjects = [
     'React Native, Charts, Health, Mobile',
   ],
   [
+    'School ERP System',
     'An organized school management portal for academics, communication, and administration.',
     'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=1000&h=700&fit=crop',
     'https://github.com',

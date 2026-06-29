@@ -59,6 +59,8 @@ const Contact = () => {
         };
 
         settings.forEach((setting) => {
+          if (setting.setting_key === 'contactEmail') contactSettings.email = setting.value;
+          if (setting.setting_key === 'contactLocation') contactSettings.location = setting.value;
           if (setting.setting_key === 'contactAvailability') contactSettings.availability = setting.value;
         });
 
