@@ -122,24 +122,33 @@ const sendPortfolioEmail = async ({ name, email, phone = '', subject = 'Project 
 export const submitContact = async (req, res) => {
   let connection;
   try {
-    const { name, email, phone, subject, message } = req.body;
+    const {
+      name,
+      email,
+      phone = '',
+      subject = 'Project inquiry',
+      message,
+    } = req.body;
 
-    if (!name || !email || !phone || !subject || !message) {
+    if (!name || !email || !message) {
       return res.status(400).json({ message: 'All fields are required' });
     }
+
+    const normalizedPhone = String(phone || '').trim();
+    const normalizedSubject = String(subject || '').trim() || 'Project inquiry';
 
     connection = await pool.getConnection();
     await ensureContactsReady(connection);
 
     await connection.query(
       'INSERT INTO contacts (name, email, phone, subject, message) VALUES (?, ?, ?, ?, ?)',
-      [name, email, phone, subject, message]
+      [name, email, normalizedPhone, normalizedSubject, message]
     );
 
     let emailDelivered = false;
 
     try {
-      await sendPortfolioEmail({ name, email, phone, subject, message });
+      await sendPortfolioEmail({ name, email, phone: normalizedPhone, subject: normalizedSubject, message });
       emailDelivered = true;
     } catch (mailError) {
       console.error('Email delivery failed after saving contact:', mailError);

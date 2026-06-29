@@ -236,6 +236,8 @@ const createTables = async () => {
         id INT AUTO_INCREMENT PRIMARY KEY,
         name VARCHAR(100) NOT NULL,
         email VARCHAR(150) NOT NULL,
+        phone VARCHAR(50) DEFAULT NULL,
+        subject VARCHAR(200) DEFAULT NULL,
         message TEXT NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
