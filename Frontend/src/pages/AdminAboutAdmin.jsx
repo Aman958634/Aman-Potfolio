@@ -103,13 +103,15 @@ const AdminAboutAdmin = () => {
     if (!imageFile) return form.image;
     const fd = new FormData();
     fd.append('image', imageFile);
-    try {
-      const { data } = await uploadAPI.uploadImage(fd);
-      return data.filePath;
-    } catch {
-      setError('Image upload failed.');
-      return form.image;
+
+    const { data } = await uploadAPI.uploadImage(fd);
+    const uploadedPath = data?.filePath || data?.url;
+
+    if (!uploadedPath) {
+      throw new Error('Image upload failed. No image URL was returned.');
     }
+
+    return uploadedPath;
   };
 
   const handleSubmit = async (e) => {
@@ -138,7 +140,8 @@ const AdminAboutAdmin = () => {
       bc.postMessage({ type: 'cms:update', resource: 'about' });
       bc.close();
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to save About section.');
+      setMessage('');
+      setError(err.message || err.response?.data?.message || 'Failed to save About section.');
     } finally {
       setSaving(false);
     }

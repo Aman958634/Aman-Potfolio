@@ -176,11 +176,7 @@ export const analyticsAPI = analyticsService;
 export const uploadAPI = {
   uploadImage: async (formData) => {
     try {
-      return await api.post('/upload', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      return await api.post('/upload', formData);
     } catch (error) {
       throw parseApiError(error);
     }

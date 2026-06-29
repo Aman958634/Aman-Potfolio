@@ -19,6 +19,7 @@ import userRoutes from './routes/userRoutes.js';
 import authRoutes from './routes/authRoutes.js';
 console.log('AUTH ROUTES FILE LOADED');
 import debugRoutes from './routes/debugRoutes.js';
+import { verifyToken } from './middleware/auth.js';
 import pool from './config/database.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -28,6 +29,40 @@ dotenv.config({ path: path.resolve(__dirname, '..', '.env') });
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const uploadDir = path.resolve(__dirname, '..', 'uploads');
+
+fs.mkdirSync(uploadDir, { recursive: true });
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const safeBaseName = path
+      .parse(file.originalname)
+      .name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 48) || 'image';
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, `${Date.now()}-${safeBaseName}${ext}`);
+  },
+});
+
+const upload = multer({
+  storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024,
+  },
+  fileFilter: (req, file, cb) => {
+    if (!file.mimetype?.startsWith('image/')) {
+      return cb(new Error('Only image files are allowed'));
+    }
+
+    return cb(null, true);
+  },
+});
 
 console.log('SERVER FILE:', import.meta.url);
 console.log('PWD:', process.cwd());
@@ -125,8 +160,26 @@ app.options('*', cors(corsOptions));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use('/uploads', express.static(uploadDir, {
+  maxAge: '30d',
+  immutable: true,
+}));
 
 // Routes
+app.post('/api/upload', verifyToken, upload.single('image'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ message: 'Image file is required' });
+  }
+
+  const filePath = `/uploads/${req.file.filename}`;
+
+  return res.status(201).json({
+    message: 'Image uploaded successfully',
+    filePath,
+    url: filePath,
+  });
+});
+
 app.use('/api/projects', projectRoutes);
 app.use('/api/skills', skillRoutes);
 app.use('/api/experience', experienceRoutes);
