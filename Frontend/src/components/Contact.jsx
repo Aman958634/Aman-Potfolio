@@ -99,12 +99,12 @@ const Contact = () => {
     try {
       const response = await contactAPI.submit(formData);
 
-      if (response.data?.emailDelivered !== true) {
-        throw new Error(response.data?.message || 'Gmail delivery could not be confirmed.');
+      if (response.data?.saved !== true) {
+        throw new Error(response.data?.message || 'Message could not be saved.');
       }
 
       setSuccess(true);
-      setStatusMessage(response.data?.message || 'Message sent successfully to Gmail.');
+      setStatusMessage(response.data?.message || 'Message saved successfully. Gmail notification is being sent.');
       setFormData({ name: '', email: '', phone: '', subject: '', message: '' });
       try {
         const bc = new BroadcastChannel('portfolio-cms');

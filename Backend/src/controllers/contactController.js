@@ -28,6 +28,9 @@ const getSmtpConfig = () => {
   };
 };
 
+const EMAIL_RETRY_DELAYS_MS = [0, 3000, 10000];
+let contactsSchemaReady = false;
+
 const getContactRecipient = () => {
   const smtp = getSmtpConfig();
   return getEnvValue('CONTACT_TO_EMAIL', 'TO_EMAIL', 'ADMIN_EMAIL', 'RECEIVER_EMAIL') || smtp.user || 'anovatechnologies5@gmail.com';
@@ -41,6 +44,10 @@ const escapeHtml = (value = '') => String(value)
   .replace(/'/g, '&#039;');
 
 const ensureContactsReady = async (connection) => {
+  if (contactsSchemaReady) {
+    return;
+  }
+
   await connection.query(`
     CREATE TABLE IF NOT EXISTS contacts (
       id INT AUTO_INCREMENT PRIMARY KEY,
@@ -49,6 +56,9 @@ const ensureContactsReady = async (connection) => {
       phone VARCHAR(50) DEFAULT NULL,
       subject VARCHAR(200) DEFAULT NULL,
       message TEXT NOT NULL,
+      email_status VARCHAR(20) DEFAULT 'queued',
+      email_error TEXT DEFAULT NULL,
+      email_sent_at TIMESTAMP NULL DEFAULT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);
@@ -56,6 +66,9 @@ const ensureContactsReady = async (connection) => {
   const requiredColumns = [
     ['phone', 'VARCHAR(50) DEFAULT NULL'],
     ['subject', 'VARCHAR(200) DEFAULT NULL'],
+    ['email_status', "VARCHAR(20) DEFAULT 'queued'"],
+    ['email_error', 'TEXT DEFAULT NULL'],
+    ['email_sent_at', 'TIMESTAMP NULL DEFAULT NULL'],
   ];
 
   for (const [columnName, definition] of requiredColumns) {
@@ -64,6 +77,8 @@ const ensureContactsReady = async (connection) => {
       await connection.query(`ALTER TABLE contacts ADD COLUMN ${columnName} ${definition}`);
     }
   }
+
+  contactsSchemaReady = true;
 };
 
 const createTransporter = () => {
@@ -122,8 +137,6 @@ const sendPortfolioEmail = async ({ name, email, phone = '', subject = 'Project 
     throw error;
   }
 
-  await transporter.verify();
-
   const emailSubject = subject?.trim() || 'Project inquiry';
   const smtp = getSmtpConfig();
 
@@ -166,6 +179,60 @@ const sendPortfolioEmail = async ({ name, email, phone = '', subject = 'Project 
   return info;
 };
 
+const wait = (delayMs) => new Promise((resolve) => {
+  if (delayMs <= 0) {
+    resolve();
+    return;
+  }
+
+  setTimeout(resolve, delayMs);
+});
+
+const updateContactEmailStatus = async (contactId, status, error = null) => {
+  let connection;
+  try {
+    connection = await pool.getConnection();
+    await ensureContactsReady(connection);
+    await connection.query(
+      `UPDATE contacts
+       SET email_status = ?, email_error = ?, email_sent_at = ${status === 'sent' ? 'CURRENT_TIMESTAMP' : 'NULL'}
+       WHERE id = ?`,
+      [status, error ? String(error).slice(0, 1000) : null, contactId]
+    );
+  } catch (statusError) {
+    console.error('Unable to update contact email status:', statusError);
+  } finally {
+    if (connection) connection.release();
+  }
+};
+
+const sendContactEmailInBackground = (contactId, payload) => {
+  void (async () => {
+    let lastError = null;
+
+    for (let attempt = 0; attempt < EMAIL_RETRY_DELAYS_MS.length; attempt += 1) {
+      await wait(EMAIL_RETRY_DELAYS_MS[attempt]);
+
+      try {
+        const info = await sendPortfolioEmail(payload);
+        console.log('Contact Gmail delivered:', {
+          contactId,
+          messageId: info.messageId,
+          accepted: info.accepted,
+          attempt: attempt + 1,
+        });
+        await updateContactEmailStatus(contactId, 'sent');
+        return;
+      } catch (error) {
+        lastError = error;
+        console.error(`Contact Gmail delivery attempt ${attempt + 1} failed:`, error.code || error.responseCode || error.message);
+      }
+    }
+
+    await updateContactEmailStatus(contactId, 'failed', lastError?.code || lastError?.responseCode || lastError?.message || 'Unknown email error');
+  })();
+};
+
 export const submitContact = async (req, res) => {
   let connection;
   try {
@@ -194,42 +261,29 @@ export const submitContact = async (req, res) => {
     connection = await pool.getConnection();
     await ensureContactsReady(connection);
 
-    await connection.query(
-      'INSERT INTO contacts (name, email, phone, subject, message) VALUES (?, ?, ?, ?, ?)',
-      [normalizedName, normalizedEmail, normalizedPhone, normalizedSubject, normalizedMessage]
+    const [result] = await connection.query(
+      'INSERT INTO contacts (name, email, phone, subject, message, email_status) VALUES (?, ?, ?, ?, ?, ?)',
+      [normalizedName, normalizedEmail, normalizedPhone, normalizedSubject, normalizedMessage, 'queued']
     );
 
-    try {
-      const info = await sendPortfolioEmail({
-        name: normalizedName,
-        email: normalizedEmail,
-        phone: normalizedPhone,
-        subject: normalizedSubject,
-        message: normalizedMessage,
-      });
+    const contactId = result.insertId;
 
-      return res.status(201).json({
-        message: 'Message sent successfully to Gmail. I will get back to you soon!',
-        saved: true,
-        emailDelivered: true,
-        emailConfigured: getEmailConfigStatus().configured,
-        messageId: info.messageId,
-        accepted: info.accepted,
-      });
-    } catch (mailError) {
-      console.error('Email delivery failed after saving contact:', mailError);
+    sendContactEmailInBackground(contactId, {
+      name: normalizedName,
+      email: normalizedEmail,
+      phone: normalizedPhone,
+      subject: normalizedSubject,
+      message: normalizedMessage,
+    });
 
-      return res.status(502).json({
-        message: 'Message saved, but Gmail delivery failed. Please check SMTP_USER, SMTP_PASS Gmail app password, and CONTACT_TO_EMAIL in Railway.',
-        saved: true,
-        emailDelivered: false,
-        emailConfigured: getEmailConfigStatus().configured,
-        warning: mailError.code === 'SMTP_NOT_CONFIGURED'
-          ? 'Set SMTP_USER and SMTP_PASS in Railway Variables to send Gmail notifications.'
-          : 'Check SMTP_USER, SMTP_PASS Gmail app password, and CONTACT_TO_EMAIL in Railway.',
-        error: mailError.code || mailError.responseCode || mailError.message,
-      });
-    }
+    return res.status(201).json({
+      message: 'Message saved successfully. Gmail notification is being sent.',
+      saved: true,
+      contactId,
+      emailQueued: true,
+      emailDelivered: false,
+      emailConfigured: getEmailConfigStatus().configured,
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   } finally {
