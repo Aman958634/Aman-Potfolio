@@ -3,7 +3,7 @@ import gsap from 'gsap';
 import { contactAPI, sectionsAPI, settingsAPI } from '../services/api';
 
 const Contact = () => {
-  const [formData, setFormData] = useState({ name: '', email: '', message: '' });
+  const [formData, setFormData] = useState({ name: '', email: '', phone: '', subject: '', message: '' });
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [section, setSection] = useState({
@@ -94,7 +94,7 @@ const Contact = () => {
     try {
       await contactAPI.submit(formData);
       setSuccess(true);
-      setFormData({ name: '', email: '', message: '' });
+      setFormData({ name: '', email: '', phone: '', subject: '', message: '' });
       try {
         const bc = new BroadcastChannel('portfolio-cms');
         bc.postMessage({ type: 'cms:update', resource: 'messages' });
@@ -102,9 +102,7 @@ const Contact = () => {
       } catch (broadcastError) {
         console.warn('BroadcastChannel not available:', broadcastError);
       }
-      setTimeout(() => {
-        window.location.reload();
-      }, 900);
+      setTimeout(() => setSuccess(false), 4500);
       gsap.fromTo(
         formRef.current,
         { opacity: 0, y: -20 },
@@ -185,6 +183,36 @@ const Contact = () => {
                     className="w-full rounded-3xl border border-slate-200 bg-white px-5 py-4 text-slate-900 outline-none transition focus:border-neon-blue focus:ring-2 focus:ring-neon-blue/10"
                     placeholder="amanulla@example.com"
                   />
+                </div>
+                <div className="grid gap-5 sm:grid-cols-2">
+                  <div>
+                    <label htmlFor="contact-phone" className="block text-slate-700 font-semibold mb-2">Phone</label>
+                    <input
+                      id="contact-phone"
+                      type="tel"
+                      name="phone"
+                      value={formData.phone}
+                      onChange={handleChange}
+                      autoComplete="tel"
+                      required
+                      className="w-full rounded-3xl border border-slate-200 bg-white px-5 py-4 text-slate-900 outline-none transition focus:border-neon-blue focus:ring-2 focus:ring-neon-blue/10"
+                      placeholder="+91 95863 42070"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="contact-subject" className="block text-slate-700 font-semibold mb-2">Subject</label>
+                    <input
+                      id="contact-subject"
+                      type="text"
+                      name="subject"
+                      value={formData.subject}
+                      onChange={handleChange}
+                      autoComplete="off"
+                      required
+                      className="w-full rounded-3xl border border-slate-200 bg-white px-5 py-4 text-slate-900 outline-none transition focus:border-neon-blue focus:ring-2 focus:ring-neon-blue/10"
+                      placeholder="project"
+                    />
+                  </div>
                 </div>
                 <div>
                   <label htmlFor="contact-message" className="block text-slate-700 font-semibold mb-2">Message</label>

@@ -16,10 +16,24 @@ const ensureContactsReady = async (connection) => {
       id INT AUTO_INCREMENT PRIMARY KEY,
       name VARCHAR(100) NOT NULL,
       email VARCHAR(150) NOT NULL,
+      phone VARCHAR(50) DEFAULT NULL,
+      subject VARCHAR(200) DEFAULT NULL,
       message TEXT NOT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);
+
+  const requiredColumns = [
+    ['phone', 'VARCHAR(50) DEFAULT NULL'],
+    ['subject', 'VARCHAR(200) DEFAULT NULL'],
+  ];
+
+  for (const [columnName, definition] of requiredColumns) {
+    const [columns] = await connection.query('SHOW COLUMNS FROM contacts LIKE ?', [columnName]);
+    if (columns.length === 0) {
+      await connection.query(`ALTER TABLE contacts ADD COLUMN ${columnName} ${definition}`);
+    }
+  }
 };
 
 const createTransporter = () => {
@@ -60,7 +74,7 @@ const getEmailConfigStatus = () => ({
   hasPassword: Boolean(process.env.SMTP_PASS),
 });
 
-const sendPortfolioEmail = async ({ name, email, message, to }) => {
+const sendPortfolioEmail = async ({ name, email, phone = '', subject = 'Project inquiry', message, to }) => {
   const transporter = createTransporter();
 
   if (!transporter) {
@@ -71,20 +85,35 @@ const sendPortfolioEmail = async ({ name, email, message, to }) => {
 
   await transporter.verify();
 
+  const emailSubject = subject?.trim() || 'Project inquiry';
+  const fromName = process.env.SMTP_FROM_NAME || 'Anova Technologies';
+
   return transporter.sendMail({
-    from: `"Portfolio Contact" <${process.env.SMTP_USER}>`,
+    from: `"${fromName}" <${process.env.SMTP_USER}>`,
     sender: process.env.SMTP_USER,
     to: to || getContactRecipient(),
     replyTo: email,
-    subject: `New portfolio message from ${name}`,
-    text: `Name: ${name}\nEmail: ${email}\n\nMessage:\n${message}`,
+    subject: `New Contact Message: ${emailSubject}`,
+    text: [
+      'New contact message',
+      '',
+      `Name: ${name}`,
+      `Email: ${email}`,
+      `Phone: ${phone || 'Not provided'}`,
+      `Subject: ${emailSubject}`,
+      '',
+      'Message:',
+      message,
+    ].join('\n'),
     html: `
-      <div style="font-family: Arial, sans-serif; color: #0f172a; line-height: 1.6;">
-        <h2 style="margin-bottom: 12px;">New Portfolio Contact Message</h2>
+      <div style="font-family: Arial, sans-serif; color: #111827; line-height: 1.65;">
+        <h2 style="margin: 0 0 18px; color: #1d4ed8; font-size: 22px;">New contact message</h2>
         <p><strong>Name:</strong> ${escapeHtml(name)}</p>
-        <p><strong>Email:</strong> ${escapeHtml(email)}</p>
-        <p><strong>Message:</strong></p>
-        <p style="white-space: pre-wrap; background: #f8fafc; padding: 16px; border-radius: 12px; border: 1px solid #e2e8f0;">${escapeHtml(message)}</p>
+        <p><strong>Email:</strong> <a href="mailto:${escapeHtml(email)}" style="color: #2563eb;">${escapeHtml(email)}</a></p>
+        <p><strong>Phone:</strong> ${escapeHtml(phone || 'Not provided')}</p>
+        <p><strong>Subject:</strong> ${escapeHtml(emailSubject)}</p>
+        <p style="margin-top: 22px;"><strong>Message:</strong></p>
+        <p style="white-space: pre-wrap; margin: 0;">${escapeHtml(message)}</p>
       </div>
     `,
   });
@@ -93,9 +122,9 @@ const sendPortfolioEmail = async ({ name, email, message, to }) => {
 export const submitContact = async (req, res) => {
   let connection;
   try {
-    const { name, email, message } = req.body;
+    const { name, email, phone, subject, message } = req.body;
 
-    if (!name || !email || !message) {
+    if (!name || !email || !phone || !subject || !message) {
       return res.status(400).json({ message: 'All fields are required' });
     }
 
@@ -103,14 +132,14 @@ export const submitContact = async (req, res) => {
     await ensureContactsReady(connection);
 
     await connection.query(
-      'INSERT INTO contacts (name, email, message) VALUES (?, ?, ?)',
-      [name, email, message]
+      'INSERT INTO contacts (name, email, phone, subject, message) VALUES (?, ?, ?, ?, ?)',
+      [name, email, phone, subject, message]
     );
 
     let emailDelivered = false;
 
     try {
-      await sendPortfolioEmail({ name, email, message });
+      await sendPortfolioEmail({ name, email, phone, subject, message });
       emailDelivered = true;
     } catch (mailError) {
       console.error('Email delivery failed after saving contact:', mailError);
@@ -156,6 +185,8 @@ export const testEmail = async (req, res) => {
     const info = await sendPortfolioEmail({
       name: 'Portfolio SMTP Test',
       email: process.env.SMTP_USER || to,
+      phone: 'SMTP test',
+      subject: 'Gmail delivery test',
       message: `This is a test email from your portfolio backend. Sent at ${new Date().toISOString()}.`,
       to,
     });

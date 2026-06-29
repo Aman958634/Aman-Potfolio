@@ -46,6 +46,7 @@ const AdminMessagesAdmin = () => {
       }
     } catch (e) {
       console.error(e);
+      setFeedback(e.message || 'Unable to delete message.');
     }
   };
 
@@ -79,17 +80,25 @@ const AdminMessagesAdmin = () => {
           {testingEmail ? 'Sending Test...' : 'Send Test Gmail'}
         </button>
       </div>
+
       {feedback && <div className="mb-4 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700">{feedback}</div>}
+
       <div className="border bg-white p-4">
         {messages.length === 0 ? (
           <div className="text-slate-500">No messages.</div>
         ) : (
           <ul>
             {messages.map((m) => (
-              <li key={m.id} className="flex items-start justify-between border-b py-3">
+              <li key={m.id} className="flex items-start justify-between gap-4 border-b py-4">
                 <div>
-                  <div className="font-medium">{m.name} — <span className="text-sm text-slate-500">{m.email}</span></div>
-                  <div className="mt-1 text-slate-700">{m.message}</div>
+                  <div className="font-medium">
+                    {m.name} <span className="text-sm text-slate-500">{m.email}</span>
+                  </div>
+                  <div className="mt-2 grid gap-1 text-sm text-slate-600 sm:grid-cols-2">
+                    <div><span className="font-semibold text-slate-800">Phone:</span> {m.phone || 'Not provided'}</div>
+                    <div><span className="font-semibold text-slate-800">Subject:</span> {m.subject || 'Project inquiry'}</div>
+                  </div>
+                  <div className="mt-3 whitespace-pre-wrap text-slate-700">{m.message}</div>
                 </div>
                 <div>
                   <button onClick={() => handleDelete(m.id)} className="px-3 py-1 text-sm text-red-600">Delete</button>
