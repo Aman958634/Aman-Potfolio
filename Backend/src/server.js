@@ -19,7 +19,6 @@ import userRoutes from './routes/userRoutes.js';
 import authRoutes from './routes/authRoutes.js';
 console.log('AUTH ROUTES FILE LOADED');
 import debugRoutes from './routes/debugRoutes.js';
-import { errorHandler } from './middleware/auth.js';
 import pool from './config/database.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -76,7 +75,7 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(cors({
+const corsOptions = {
   origin: function(origin, callback) {
     if (!origin) return callback(null, true);
 
@@ -90,9 +89,10 @@ app.use(cors({
   credentials: true,
   methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
   allowedHeaders: ['Content-Type','Authorization']
-}));
+};
 
-app.options('*', cors());
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
