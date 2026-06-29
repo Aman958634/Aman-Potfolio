@@ -20,10 +20,10 @@ const AdminExperienceAdmin = () => {
     loadExperience();
   }, []);
 
-  const resetForm = () => {
+  const resetForm = ({ clearFeedback = true } = {}) => {
     setEditing(null);
     setForm({ role: '', company: '', duration: '', description: '' });
-    setFeedback('');
+    if (clearFeedback) setFeedback('');
   };
 
   const handleSubmit = async (event) => {
@@ -36,7 +36,7 @@ const AdminExperienceAdmin = () => {
         await experienceAPI.create(form);
         setFeedback('Experience added successfully.');
       }
-      resetForm();
+      resetForm({ clearFeedback: false });
       loadExperience();
       const bc = new BroadcastChannel('portfolio-cms');
       bc.postMessage({ type: 'cms:update', resource: 'experience' });

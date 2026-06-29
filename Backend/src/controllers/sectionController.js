@@ -46,9 +46,40 @@ const parseMetadata = (section) => {
   }
 };
 
+const ensureSectionsReady = async (connection) => {
+  await connection.query(`
+    CREATE TABLE IF NOT EXISTS sections (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      slug VARCHAR(255) NOT NULL UNIQUE,
+      title VARCHAR(255) DEFAULT NULL,
+      subtitle TEXT DEFAULT NULL,
+      content TEXT DEFAULT NULL,
+      metadata JSON DEFAULT NULL,
+      image TEXT DEFAULT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )
+  `);
+
+  const requiredColumns = [
+    ['subtitle', 'TEXT DEFAULT NULL'],
+    ['content', 'TEXT DEFAULT NULL'],
+    ['metadata', 'JSON DEFAULT NULL'],
+    ['image', 'TEXT DEFAULT NULL'],
+  ];
+
+  for (const [columnName, definition] of requiredColumns) {
+    const [columns] = await connection.query('SHOW COLUMNS FROM sections LIKE ?', [columnName]);
+    if (columns.length === 0) {
+      await connection.query(`ALTER TABLE sections ADD COLUMN ${columnName} ${definition}`);
+    }
+  }
+};
+
 export const getAllSections = async (req, res) => {
   try {
     const connection = await pool.getConnection();
+    await ensureSectionsReady(connection);
     const [sections] = await connection.query('SELECT * FROM sections ORDER BY id ASC');
     connection.release();
 
@@ -68,6 +99,7 @@ export const getSectionBySlug = async (req, res) => {
     const { slug } = req.params;
     console.log('GET /api/sections/' + slug + ' called');
     const connection = await pool.getConnection();
+    await ensureSectionsReady(connection);
     const [sections] = await connection.query('SELECT * FROM sections WHERE slug = ?', [slug]);
 
     if (sections.length === 0) {
@@ -114,6 +146,7 @@ export const createSection = async (req, res) => {
   try {
     const { slug, title, subtitle, content, metadata, image } = sanitizeSectionInput(req.body);
     const connection = await pool.getConnection();
+    await ensureSectionsReady(connection);
 
     await connection.query(
       `INSERT INTO sections (slug, title, subtitle, content, metadata, image)
@@ -147,6 +180,7 @@ export const updateSection = async (req, res) => {
     const { slug } = req.params;
     const { title, subtitle, content, metadata, image } = sanitizeSectionInput({ slug, ...req.body });
     const connection = await pool.getConnection();
+    await ensureSectionsReady(connection);
 
     // Upsert: insert if missing, update if exists
     await connection.query(
@@ -180,6 +214,7 @@ export const deleteSection = async (req, res) => {
   try {
     const { slug } = req.params;
     const connection = await pool.getConnection();
+    await ensureSectionsReady(connection);
 
     await connection.query('DELETE FROM sections WHERE slug = ?', [slug]);
     connection.release();

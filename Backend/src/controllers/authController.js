@@ -66,7 +66,7 @@ export const loginAdmin = async (req, res) => {
     const token = jwt.sign(
       { id: admin.id, email: admin.email },
       JWT_SECRET,
-      { expiresIn: '1h' }
+      { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
     );
 
     console.log('LOGIN SUCCESSFUL for:', normalizedEmail);

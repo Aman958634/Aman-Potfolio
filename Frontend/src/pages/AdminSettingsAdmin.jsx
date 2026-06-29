@@ -20,10 +20,10 @@ const AdminSettingsAdmin = () => {
     loadSettings();
   }, []);
 
-  const resetForm = () => {
+  const resetForm = ({ clearFeedback = true } = {}) => {
     setEditing(null);
     setForm({ setting_key: '', value: '', metadata: '' });
-    setFeedback('');
+    if (clearFeedback) setFeedback('');
   };
 
   const handleSubmit = async (event) => {
@@ -37,7 +37,7 @@ const AdminSettingsAdmin = () => {
         await settingsAPI.create({ setting_key: form.setting_key, ...payload });
         setFeedback('Setting created successfully.');
       }
-      resetForm();
+      resetForm({ clearFeedback: false });
       loadSettings();
       const bc = new BroadcastChannel('portfolio-cms');
       bc.postMessage({ type: 'cms:update', resource: 'settings' });

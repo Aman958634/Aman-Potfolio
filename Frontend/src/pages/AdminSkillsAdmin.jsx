@@ -20,10 +20,10 @@ const AdminSkillsAdmin = () => {
     loadSkills();
   }, []);
 
-  const resetForm = () => {
+  const resetForm = ({ clearFeedback = true } = {}) => {
     setEditing(null);
     setForm({ name: '', level: '', icon: '' });
-    setFeedback('');
+    if (clearFeedback) setFeedback('');
   };
 
   const handleSubmit = async (event) => {
@@ -36,7 +36,7 @@ const AdminSkillsAdmin = () => {
         await skillsAPI.create(form);
         setFeedback('Skill created successfully.');
       }
-      resetForm();
+      resetForm({ clearFeedback: false });
       loadSkills();
       const bc = new BroadcastChannel('portfolio-cms');
       bc.postMessage({ type: 'cms:update', resource: 'skills' });

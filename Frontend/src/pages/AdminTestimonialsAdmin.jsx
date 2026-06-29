@@ -20,10 +20,10 @@ const AdminTestimonialsAdmin = () => {
     loadTestimonials();
   }, []);
 
-  const resetForm = () => {
+  const resetForm = ({ clearFeedback = true } = {}) => {
     setEditing(null);
     setForm({ name: '', role: '', text: '', rating: 5 });
-    setFeedback('');
+    if (clearFeedback) setFeedback('');
   };
 
   const handleSubmit = async (event) => {
@@ -36,7 +36,7 @@ const AdminTestimonialsAdmin = () => {
         await testimonialsAPI.create(form);
         setFeedback('Testimonial created successfully.');
       }
-      resetForm();
+      resetForm({ clearFeedback: false });
       loadTestimonials();
       const bc = new BroadcastChannel('portfolio-cms');
       bc.postMessage({ type: 'cms:update', resource: 'testimonials' });

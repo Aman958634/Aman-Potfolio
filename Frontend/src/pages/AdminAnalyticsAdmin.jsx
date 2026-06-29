@@ -20,10 +20,10 @@ const AdminAnalyticsAdmin = () => {
     loadMetrics();
   }, []);
 
-  const resetForm = () => {
+  const resetForm = ({ clearFeedback = true } = {}) => {
     setEditing(null);
     setForm({ metric_key: '', metric_value: '', description: '' });
-    setFeedback('');
+    if (clearFeedback) setFeedback('');
   };
 
   const handleSubmit = async (event) => {
@@ -36,7 +36,7 @@ const AdminAnalyticsAdmin = () => {
         await analyticsAPI.create(form);
         setFeedback('Metric created successfully.');
       }
-      resetForm();
+      resetForm({ clearFeedback: false });
       loadMetrics();
       const bc = new BroadcastChannel('portfolio-cms');
       bc.postMessage({ type: 'cms:update', resource: 'analytics' });

@@ -20,10 +20,10 @@ const AdminPortfolioItems = () => {
     loadProjects();
   }, []);
 
-  const resetForm = () => {
+  const resetForm = ({ clearFeedback = true } = {}) => {
     setEditing(null);
     setForm({ title: '', description: '', image: '', link: '', tech_stack: '' });
-    setFeedback('');
+    if (clearFeedback) setFeedback('');
   };
 
   const handleSubmit = async (event) => {
@@ -36,7 +36,7 @@ const AdminPortfolioItems = () => {
         await projectsAPI.create(form);
         setFeedback('Portfolio item created successfully.');
       }
-      resetForm();
+      resetForm({ clearFeedback: false });
       loadProjects();
       const bc = new BroadcastChannel('portfolio-cms');
       bc.postMessage({ type: 'cms:update', resource: 'projects' });

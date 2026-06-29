@@ -57,6 +57,7 @@ export const createSkill = async (req, res) => {
   try {
     const { name, level, icon } = req.body;
     const connection = await pool.getConnection();
+    await ensureSkillsReady(connection);
 
     await connection.query('INSERT INTO skills (name, level, icon) VALUES (?, ?, ?)', [name, level, icon || null]);
 
@@ -72,6 +73,7 @@ export const updateSkill = async (req, res) => {
     const { id } = req.params;
     const { name, level, icon } = req.body;
     const connection = await pool.getConnection();
+    await ensureSkillsReady(connection);
 
     await connection.query('UPDATE skills SET name = ?, level = ?, icon = ? WHERE id = ?', [name, level, icon || null, id]);
 
@@ -86,6 +88,7 @@ export const deleteSkill = async (req, res) => {
   try {
     const { id } = req.params;
     const connection = await pool.getConnection();
+    await ensureSkillsReady(connection);
     await connection.query('DELETE FROM skills WHERE id = ?', [id]);
     connection.release();
     res.json({ message: 'Skill deleted successfully' });

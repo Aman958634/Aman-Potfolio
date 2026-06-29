@@ -20,10 +20,10 @@ const AdminServicesAdmin = () => {
     load();
   }, []);
 
-  const resetForm = () => {
+  const resetForm = ({ clearFeedback = true } = {}) => {
     setEditing(null);
     setForm({ title: '', description: '', icon: '', position: 0 });
-    setFeedback('');
+    if (clearFeedback) setFeedback('');
   };
 
   const handleSubmit = async (event) => {
@@ -36,7 +36,7 @@ const AdminServicesAdmin = () => {
         await servicesAPI.create(form);
         setFeedback('Service created successfully');
       }
-      resetForm();
+      resetForm({ clearFeedback: false });
       load();
       const bc = new BroadcastChannel('portfolio-cms');
       bc.postMessage({ type: 'cms:update', resource: 'services' });

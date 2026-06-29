@@ -54,6 +54,7 @@ export const getServiceById = async (req, res) => {
   try {
     const { id } = req.params;
     const connection = await pool.getConnection();
+    await ensureServicesReady(connection);
     const [services] = await connection.query('SELECT * FROM services WHERE id = ?', [id]);
     connection.release();
 
@@ -68,6 +69,7 @@ export const createService = async (req, res) => {
   try {
     const { title, description, icon, position } = req.body;
     const connection = await pool.getConnection();
+    await ensureServicesReady(connection);
     await connection.query(
       'INSERT INTO services (title, description, icon, position) VALUES (?, ?, ?, ?)',
       [title, description, icon, position || 0]
@@ -84,6 +86,7 @@ export const updateService = async (req, res) => {
     const { id } = req.params;
     const { title, description, icon, position } = req.body;
     const connection = await pool.getConnection();
+    await ensureServicesReady(connection);
     await connection.query(
       'UPDATE services SET title = ?, description = ?, icon = ?, position = ? WHERE id = ?',
       [title, description, icon, position || 0, id]
@@ -99,6 +102,7 @@ export const deleteService = async (req, res) => {
   try {
     const { id } = req.params;
     const connection = await pool.getConnection();
+    await ensureServicesReady(connection);
 
     // Retrieve the target service first
     const [rows] = await connection.query('SELECT * FROM services WHERE id = ?', [id]);

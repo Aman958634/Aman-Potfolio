@@ -8,10 +8,25 @@ const setNoCacheHeaders = (res) => {
   });
 };
 
+const ensureExperienceReady = async (connection) => {
+  await connection.query(`
+    CREATE TABLE IF NOT EXISTS experience (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      role VARCHAR(200) NOT NULL,
+      company VARCHAR(200) DEFAULT NULL,
+      duration VARCHAR(100) DEFAULT NULL,
+      description TEXT DEFAULT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )
+  `);
+};
+
 export const getAllExperience = async (req, res) => {
   try {
     setNoCacheHeaders(res);
     const connection = await pool.getConnection();
+    await ensureExperienceReady(connection);
     const [experience] = await connection.query('SELECT * FROM experience ORDER BY id DESC');
     connection.release();
     res.json(experience);
@@ -24,6 +39,7 @@ export const createExperience = async (req, res) => {
   try {
     const { role, company, duration, description } = req.body;
     const connection = await pool.getConnection();
+    await ensureExperienceReady(connection);
 
     await connection.query(
       'INSERT INTO experience (role, company, duration, description) VALUES (?, ?, ?, ?)',
@@ -42,6 +58,7 @@ export const updateExperience = async (req, res) => {
     const { id } = req.params;
     const { role, company, duration, description } = req.body;
     const connection = await pool.getConnection();
+    await ensureExperienceReady(connection);
 
     await connection.query(
       'UPDATE experience SET role = ?, company = ?, duration = ?, description = ? WHERE id = ?',
@@ -59,6 +76,7 @@ export const deleteExperience = async (req, res) => {
   try {
     const { id } = req.params;
     const connection = await pool.getConnection();
+    await ensureExperienceReady(connection);
     await connection.query('DELETE FROM experience WHERE id = ?', [id]);
     connection.release();
     res.json({ message: 'Experience deleted successfully' });

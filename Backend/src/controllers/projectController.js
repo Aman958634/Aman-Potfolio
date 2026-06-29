@@ -212,6 +212,7 @@ export const createProject = async (req, res) => {
   try {
     const { title, description, image, link, tech_stack } = sanitizeProjectInput(req.body);
     const connection = await pool.getConnection();
+    await ensureProjectsReady(connection);
 
     const [result] = await connection.query(
       'INSERT INTO projects (title, description, image, link, tech_stack) VALUES (?, ?, ?, ?, ?)',
@@ -235,6 +236,7 @@ export const updateProject = async (req, res) => {
     const { id } = req.params;
     const { title, description, image, link, tech_stack } = sanitizeProjectInput(req.body);
     const connection = await pool.getConnection();
+    await ensureProjectsReady(connection);
 
     const [result] = await connection.query(
       'UPDATE projects SET title = ?, description = ?, image = ?, link = ?, tech_stack = ? WHERE id = ?',
@@ -262,6 +264,7 @@ export const deleteProject = async (req, res) => {
   try {
     const { id } = req.params;
     const connection = await pool.getConnection();
+    await ensureProjectsReady(connection);
     await connection.query('DELETE FROM projects WHERE id = ?', [id]);
     connection.release();
     res.json({ message: 'Project deleted successfully' });

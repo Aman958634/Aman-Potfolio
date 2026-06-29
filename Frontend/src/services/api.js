@@ -23,6 +23,35 @@ const api = axios.create({
   },
 });
 
+const getTokenPayload = (token) => {
+  try {
+    const payload = token.split('.')[1];
+    if (!payload) return null;
+
+    const normalizedPayload = payload.replace(/-/g, '+').replace(/_/g, '/');
+    return JSON.parse(window.atob(normalizedPayload));
+  } catch {
+    return null;
+  }
+};
+
+const isTokenExpired = (token) => {
+  const payload = getTokenPayload(token);
+  if (!payload?.exp) return false;
+  return payload.exp * 1000 <= Date.now();
+};
+
+const getStoredToken = () => {
+  const token = localStorage.getItem('token');
+
+  if (token && isTokenExpired(token)) {
+    logout();
+    return null;
+  }
+
+  return token;
+};
+
 const isRenderableImageSource = (imagePath) => {
   if (!imagePath || typeof imagePath !== 'string') {
     return false;
@@ -45,24 +74,28 @@ export const resolveImageUrl = (imagePath) => {
 };
 
 const parseApiError = (error) => {
+  const status = error?.response?.status;
+  const response = error?.response;
+  let parsedError;
+
   if (error?.response?.data?.message) {
-    return new Error(error.response.data.message);
+    parsedError = new Error(error.response.data.message);
+  } else if (error?.response?.data) {
+    parsedError = new Error(JSON.stringify(error.response.data));
+  } else if (error?.message) {
+    parsedError = new Error(error.message);
+  } else {
+    parsedError = new Error('Network error');
   }
 
-  if (error?.response?.data) {
-    return new Error(JSON.stringify(error.response.data));
-  }
-
-  if (error?.message) {
-    return new Error(error.message);
-  }
-
-  return new Error('Network error');
+  parsedError.status = status;
+  parsedError.response = response;
+  return parsedError;
 };
 
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
+    const token = getStoredToken();
     config.headers = config.headers || {};
 
     if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
@@ -80,6 +113,22 @@ api.interceptors.request.use(
     return config;
   },
   (error) => Promise.reject(error)
+);
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const status = error?.response?.status;
+    const isAdminPage = window.location.pathname.startsWith('/admin') || window.location.pathname === '/dashboard';
+    const isLoginRequest = error?.config?.url?.includes('/auth/login');
+
+    if ((status === 401 || status === 403) && isAdminPage && !isLoginRequest) {
+      logout();
+      window.location.assign('/admin/login');
+    }
+
+    return Promise.reject(error);
+  }
 );
 
 export const login = async (email, password) => {
@@ -100,7 +149,7 @@ export const logout = () => {
   localStorage.removeItem('adminEmail');
 };
 
-export const isAuthenticated = () => Boolean(localStorage.getItem('token'));
+export const isAuthenticated = () => Boolean(getStoredToken());
 
 const createCrudService = (endpoint) => ({
   getAll: async () => {

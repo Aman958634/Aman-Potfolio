@@ -114,13 +114,14 @@ export const submitContact = async (req, res) => {
       emailDelivered = true;
     } catch (mailError) {
       console.error('Email delivery failed after saving contact:', mailError);
-      return res.status(mailError.code === 'SMTP_NOT_CONFIGURED' ? 503 : 502).json({
-        message: mailError.code === 'SMTP_NOT_CONFIGURED'
-          ? 'Message saved, but email is not configured. Set SMTP_USER and SMTP_PASS in Railway.'
-          : 'Message saved, but Gmail delivery failed. Check SMTP_USER, SMTP_PASS app password, and CONTACT_TO_EMAIL in Railway.',
+      return res.status(201).json({
+        message: 'Message saved successfully. Gmail delivery needs SMTP settings checked.',
         emailDelivered,
         emailConfigured: Boolean(process.env.SMTP_USER && process.env.SMTP_PASS),
         emailConfig: getEmailConfigStatus(),
+        warning: mailError.code === 'SMTP_NOT_CONFIGURED'
+          ? 'Set SMTP_USER and SMTP_PASS in Railway to send Gmail notifications.'
+          : 'Check SMTP_USER, SMTP_PASS app password, and CONTACT_TO_EMAIL in Railway.',
         error: mailError.code || mailError.responseCode || mailError.message,
       });
     }

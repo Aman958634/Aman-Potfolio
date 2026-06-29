@@ -20,10 +20,10 @@ const AdminUsersAdmin = () => {
     loadUsers();
   }, []);
 
-  const resetForm = () => {
+  const resetForm = ({ clearFeedback = true } = {}) => {
     setEditing(null);
     setForm({ email: '', password: '' });
-    setFeedback('');
+    if (clearFeedback) setFeedback('');
   };
 
   const handleSubmit = async (event) => {
@@ -36,7 +36,7 @@ const AdminUsersAdmin = () => {
         await usersAPI.create(form);
         setFeedback('User created successfully.');
       }
-      resetForm();
+      resetForm({ clearFeedback: false });
       loadUsers();
       const bc = new BroadcastChannel('portfolio-cms');
       bc.postMessage({ type: 'cms:update', resource: 'users' });

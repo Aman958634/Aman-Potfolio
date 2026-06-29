@@ -22,12 +22,12 @@ const AdminSections = () => {
     loadSections();
   }, []);
 
-  const resetForm = () => {
+  const resetForm = ({ clearFeedback = true } = {}) => {
     setEditing(null);
     setForm({ slug: '', title: '', subtitle: '', content: '', metadata: '', image: '' });
     setImageFile(null);
     setImagePreview('');
-    setFeedback('');
+    if (clearFeedback) setFeedback('');
   };
 
   const handleImageChange = (event) => {
@@ -90,7 +90,7 @@ const AdminSections = () => {
         setFeedback('Section created successfully.');
       }
 
-      resetForm();
+      resetForm({ clearFeedback: false });
       loadSections();
       const bc = new BroadcastChannel('portfolio-cms');
       bc.postMessage({ type: 'cms:update', resource: 'sections' });
