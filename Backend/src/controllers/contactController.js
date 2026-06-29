@@ -1,7 +1,36 @@
 import nodemailer from 'nodemailer';
 import pool from '../config/database.js';
 
-const getContactRecipient = () => process.env.CONTACT_TO_EMAIL || process.env.SMTP_USER || 'anovatechnologies5@gmail.com';
+const getEnvValue = (...keys) => {
+  for (const key of keys) {
+    const value = process.env[key]?.trim();
+    if (value) return value;
+  }
+
+  return '';
+};
+
+const getSmtpConfig = () => {
+  const user = getEnvValue('SMTP_USER', 'EMAIL_USER', 'GMAIL_USER', 'MAIL_USER');
+  const pass = getEnvValue('SMTP_PASS', 'EMAIL_PASS', 'GMAIL_PASS', 'MAIL_PASS');
+  const host = getEnvValue('SMTP_HOST', 'EMAIL_HOST', 'MAIL_HOST') || 'smtp.gmail.com';
+  const port = Number(getEnvValue('SMTP_PORT', 'EMAIL_PORT', 'MAIL_PORT') || 587);
+  const secure = String(getEnvValue('SMTP_SECURE', 'EMAIL_SECURE', 'MAIL_SECURE')).toLowerCase() === 'true' || port === 465;
+
+  return {
+    user,
+    pass,
+    host,
+    port,
+    secure,
+    fromName: getEnvValue('SMTP_FROM_NAME', 'EMAIL_FROM_NAME', 'MAIL_FROM_NAME') || 'Anova Technologies',
+  };
+};
+
+const getContactRecipient = () => {
+  const smtp = getSmtpConfig();
+  return getEnvValue('CONTACT_TO_EMAIL', 'TO_EMAIL', 'ADMIN_EMAIL', 'RECEIVER_EMAIL') || smtp.user || 'anovatechnologies5@gmail.com';
+};
 
 const escapeHtml = (value = '') => String(value)
   .replace(/&/g, '&amp;')
@@ -37,24 +66,20 @@ const ensureContactsReady = async (connection) => {
 };
 
 const createTransporter = () => {
-  const user = process.env.SMTP_USER?.trim();
-  const pass = process.env.SMTP_PASS?.trim();
+  const smtp = getSmtpConfig();
 
-  if (!user || !pass) {
+  if (!smtp.user || !smtp.pass) {
     return null;
   }
 
-  const port = Number(process.env.SMTP_PORT || 587);
-  const secure = String(process.env.SMTP_SECURE || '').toLowerCase() === 'true' || port === 465;
-
   return nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'smtp.gmail.com',
-    port,
-    secure,
-    requireTLS: !secure,
+    host: smtp.host,
+    port: smtp.port,
+    secure: smtp.secure,
+    requireTLS: !smtp.secure,
     auth: {
-      user,
-      pass,
+      user: smtp.user,
+      pass: smtp.pass,
     },
     connectionTimeout: 15000,
     greetingTimeout: 15000,
@@ -65,20 +90,34 @@ const createTransporter = () => {
   });
 };
 
-const getEmailConfigStatus = () => ({
-  host: process.env.SMTP_HOST || 'smtp.gmail.com',
-  port: Number(process.env.SMTP_PORT || 587),
-  secure: String(process.env.SMTP_SECURE || '').toLowerCase() === 'true' || Number(process.env.SMTP_PORT || 587) === 465,
-  user: process.env.SMTP_USER || '',
-  recipient: getContactRecipient(),
-  hasPassword: Boolean(process.env.SMTP_PASS),
-});
+const getEmailConfigStatus = () => {
+  const smtp = getSmtpConfig();
+
+  return {
+    host: smtp.host,
+    port: smtp.port,
+    secure: smtp.secure,
+    user: smtp.user,
+    recipient: getContactRecipient(),
+    hasPassword: Boolean(smtp.pass),
+    configured: Boolean(smtp.user && smtp.pass),
+    acceptedVariableNames: {
+      user: ['SMTP_USER', 'EMAIL_USER', 'GMAIL_USER', 'MAIL_USER'],
+      pass: ['SMTP_PASS', 'EMAIL_PASS', 'GMAIL_PASS', 'MAIL_PASS'],
+      recipient: ['CONTACT_TO_EMAIL', 'TO_EMAIL', 'ADMIN_EMAIL', 'RECEIVER_EMAIL'],
+    },
+    missing: [
+      !smtp.user ? 'SMTP_USER' : null,
+      !smtp.pass ? 'SMTP_PASS' : null,
+    ].filter(Boolean),
+  };
+};
 
 const sendPortfolioEmail = async ({ name, email, phone = '', subject = 'Project inquiry', message, to }) => {
   const transporter = createTransporter();
 
   if (!transporter) {
-    const error = new Error('SMTP_USER and SMTP_PASS are required');
+    const error = new Error('Gmail is not configured. Add SMTP_USER and SMTP_PASS in Railway Variables.');
     error.code = 'SMTP_NOT_CONFIGURED';
     throw error;
   }
@@ -86,11 +125,11 @@ const sendPortfolioEmail = async ({ name, email, phone = '', subject = 'Project 
   await transporter.verify();
 
   const emailSubject = subject?.trim() || 'Project inquiry';
-  const fromName = process.env.SMTP_FROM_NAME || 'Anova Technologies';
+  const smtp = getSmtpConfig();
 
   return transporter.sendMail({
-    from: `"${fromName}" <${process.env.SMTP_USER}>`,
-    sender: process.env.SMTP_USER,
+    from: `"${smtp.fromName}" <${smtp.user}>`,
+    sender: smtp.user,
     to: to || getContactRecipient(),
     replyTo: email,
     subject: `New Contact Message: ${emailSubject}`,
@@ -155,11 +194,11 @@ export const submitContact = async (req, res) => {
       return res.status(201).json({
         message: 'Message saved successfully. Gmail delivery needs SMTP settings checked.',
         emailDelivered,
-        emailConfigured: Boolean(process.env.SMTP_USER && process.env.SMTP_PASS),
+        emailConfigured: getEmailConfigStatus().configured,
         emailConfig: getEmailConfigStatus(),
         warning: mailError.code === 'SMTP_NOT_CONFIGURED'
-          ? 'Set SMTP_USER and SMTP_PASS in Railway to send Gmail notifications.'
-          : 'Check SMTP_USER, SMTP_PASS app password, and CONTACT_TO_EMAIL in Railway.',
+          ? 'Set SMTP_USER and SMTP_PASS in Railway Variables to send Gmail notifications.'
+          : 'Check SMTP_USER, SMTP_PASS Gmail app password, and CONTACT_TO_EMAIL in Railway.',
         error: mailError.code || mailError.responseCode || mailError.message,
       });
     }
@@ -167,7 +206,7 @@ export const submitContact = async (req, res) => {
     return res.status(201).json({
       message: 'Message sent successfully. I will get back to you soon!',
       emailDelivered,
-      emailConfigured: Boolean(process.env.SMTP_USER && process.env.SMTP_PASS),
+      emailConfigured: getEmailConfigStatus().configured,
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -191,9 +230,10 @@ export const getAllContacts = async (req, res) => {
 export const testEmail = async (req, res) => {
   try {
     const to = req.body?.to || getContactRecipient();
+    const smtp = getSmtpConfig();
     const info = await sendPortfolioEmail({
       name: 'Portfolio SMTP Test',
-      email: process.env.SMTP_USER || to,
+      email: smtp.user || to,
       phone: 'SMTP test',
       subject: 'Gmail delivery test',
       message: `This is a test email from your portfolio backend. Sent at ${new Date().toISOString()}.`,
@@ -213,8 +253,8 @@ export const testEmail = async (req, res) => {
     res.status(error.code === 'SMTP_NOT_CONFIGURED' ? 503 : 502).json({
       success: false,
       message: error.code === 'SMTP_NOT_CONFIGURED'
-        ? 'Email is not configured. Set SMTP_USER and SMTP_PASS in Railway.'
-        : 'Gmail test failed. Check SMTP_USER, SMTP_PASS app password, and CONTACT_TO_EMAIL in Railway.',
+        ? 'Email is not configured. Add SMTP_USER and SMTP_PASS in Railway Variables, then redeploy.'
+        : 'Gmail test failed. Check SMTP_USER, SMTP_PASS Gmail app password, and CONTACT_TO_EMAIL in Railway.',
       error: error.code || error.responseCode || error.message,
       emailConfig: getEmailConfigStatus(),
     });

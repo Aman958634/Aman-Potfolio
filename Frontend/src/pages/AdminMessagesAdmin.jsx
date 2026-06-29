@@ -4,6 +4,7 @@ import { contactAPI } from '../services/api';
 const AdminMessagesAdmin = () => {
   const [messages, setMessages] = useState([]);
   const [feedback, setFeedback] = useState('');
+  const [emailConfig, setEmailConfig] = useState(null);
   const [testingEmail, setTestingEmail] = useState(false);
 
   const fetch = async () => {
@@ -53,12 +54,15 @@ const AdminMessagesAdmin = () => {
   const handleTestEmail = async () => {
     setTestingEmail(true);
     setFeedback('');
+    setEmailConfig(null);
 
     try {
       const response = await contactAPI.testEmail();
       setFeedback(response.data?.message || 'Test email sent successfully.');
+      setEmailConfig(response.data?.emailConfig || null);
     } catch (error) {
       setFeedback(error.message || 'Test email failed.');
+      setEmailConfig(error.response?.data?.emailConfig || null);
     } finally {
       setTestingEmail(false);
     }
@@ -82,6 +86,19 @@ const AdminMessagesAdmin = () => {
       </div>
 
       {feedback && <div className="mb-4 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700">{feedback}</div>}
+      {emailConfig && (
+        <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+          <div className="font-semibold text-slate-900">Email config</div>
+          <div className="mt-2 grid gap-1 sm:grid-cols-2">
+            <div><span className="font-semibold">Host:</span> {emailConfig.host || 'n/a'}</div>
+            <div><span className="font-semibold">Port:</span> {emailConfig.port || 'n/a'}</div>
+            <div><span className="font-semibold">Secure:</span> {emailConfig.secure ? 'true' : 'false'}</div>
+            <div><span className="font-semibold">User:</span> {emailConfig.user || 'missing'}</div>
+            <div><span className="font-semibold">Recipient:</span> {emailConfig.recipient || 'missing'}</div>
+            <div><span className="font-semibold">Password:</span> {emailConfig.hasPassword ? 'set' : 'missing'}</div>
+          </div>
+        </div>
+      )}
 
       <div className="border bg-white p-4">
         {messages.length === 0 ? (
