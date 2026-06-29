@@ -362,9 +362,17 @@ const sendContactEmailWithRetry = async (contactId, fallbackPayload) => {
   throw lastError;
 };
 
+const sendContactEmailInBackground = (contactId, fallbackPayload) => {
+  void sendContactEmailWithRetry(contactId, fallbackPayload).catch((error) => {
+    console.error('Contact Gmail background delivery failed:', {
+      contactId,
+      error: error?.code || error?.responseCode || error?.message || 'Unknown email error',
+    });
+  });
+};
+
 export const submitContact = async (req, res) => {
   let connection;
-  let savedContactId = null;
 
   try {
     const {
@@ -398,14 +406,13 @@ export const submitContact = async (req, res) => {
     );
 
     const contactId = result.insertId;
-    savedContactId = contactId;
 
     if (connection) {
       connection.release();
       connection = null;
     }
 
-    const info = await sendContactEmailWithRetry(contactId, {
+    sendContactEmailInBackground(contactId, {
       contactId,
       name: normalizedName,
       email: normalizedEmail,
@@ -416,30 +423,18 @@ export const submitContact = async (req, res) => {
     });
 
     return res.status(201).json({
-      message: 'Message saved successfully and Gmail notification sent.',
+      message: 'Message saved successfully. Gmail notification is being sent.',
       saved: true,
       contactId,
-      emailQueued: false,
-      emailDelivered: true,
+      emailQueued: true,
+      emailDelivered: false,
       emailConfigured: getEmailConfigStatus().configured,
-      messageId: info.messageId,
-      accepted: info.accepted,
     });
   } catch (error) {
-    const emailAttemptedAfterSave = Boolean(savedContactId);
-    const status = emailAttemptedAfterSave
-      ? (error.code === 'SMTP_NOT_CONFIGURED' ? 503 : 502)
-      : 500;
-
-    res.status(status).json({
-      message: emailAttemptedAfterSave
-        ? (error.code === 'SMTP_NOT_CONFIGURED'
-          ? 'Message saved, but Gmail is not configured. Add SMTP_USER and SMTP_PASS, then redeploy.'
-          : 'Message saved, but Gmail notification could not be sent. Check SMTP_USER, SMTP_PASS Gmail app password, and CONTACT_TO_EMAIL.')
-        : error.message,
+    res.status(500).json({
+      message: error.message,
       error: error.code || error.responseCode || error.message,
-      saved: emailAttemptedAfterSave,
-      contactId: savedContactId,
+      saved: false,
       emailDelivered: false,
       emailConfigured: getEmailConfigStatus().configured,
     });

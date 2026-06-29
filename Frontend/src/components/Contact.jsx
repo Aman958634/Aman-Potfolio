@@ -96,16 +96,11 @@ const Contact = () => {
     setStatusMessage('');
     setErrorMessage('');
 
-    try {
-      const response = await contactAPI.submit(formData);
-
-      if (response.data?.saved !== true) {
-        throw new Error(response.data?.message || 'Message could not be saved.');
-      }
-
+    const showSavedSuccess = (message) => {
       setSuccess(true);
-      setStatusMessage(response.data?.message || 'Message saved successfully. Gmail notification is being sent.');
+      setStatusMessage(message || 'Message saved successfully. Gmail notification is being sent.');
       setFormData({ name: '', email: '', phone: '', subject: '', message: '' });
+
       try {
         const bc = new BroadcastChannel('portfolio-cms');
         bc.postMessage({ type: 'cms:update', resource: 'messages' });
@@ -113,14 +108,33 @@ const Contact = () => {
       } catch (broadcastError) {
         console.warn('BroadcastChannel not available:', broadcastError);
       }
+
       setTimeout(() => setSuccess(false), 4500);
-      gsap.fromTo(
-        formRef.current,
-        { opacity: 0, y: -20 },
-        { opacity: 1, y: 0, duration: 0.5 }
-      );
+
+      if (formRef.current) {
+        gsap.fromTo(
+          formRef.current,
+          { opacity: 0, y: -20 },
+          { opacity: 1, y: 0, duration: 0.5 }
+        );
+      }
+    };
+
+    try {
+      const response = await contactAPI.submit(formData);
+
+      if (response.data?.saved !== true) {
+        throw new Error(response.data?.message || 'Message could not be saved.');
+      }
+
+      showSavedSuccess(response.data?.message);
     } catch (error) {
       console.error('Error submitting form:', error);
+      if (error.response?.data?.saved === true) {
+        showSavedSuccess('Message saved successfully. Gmail notification is being retried.');
+        return;
+      }
+
       setErrorMessage(error.message || 'Failed to send message to Gmail. Please try again.');
     } finally {
       setLoading(false);
