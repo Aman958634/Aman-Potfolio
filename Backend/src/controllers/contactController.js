@@ -128,7 +128,16 @@ const getEmailConfigStatus = () => {
   };
 };
 
-const sendPortfolioEmail = async ({ name, email, phone = '', subject = 'Project inquiry', message, to }) => {
+const sendPortfolioEmail = async ({
+  contactId,
+  name,
+  email,
+  phone = '',
+  subject = 'Project inquiry',
+  message,
+  submittedAt = new Date(),
+  to,
+}) => {
   const transporter = createTransporter();
 
   if (!transporter) {
@@ -139,33 +148,85 @@ const sendPortfolioEmail = async ({ name, email, phone = '', subject = 'Project 
 
   const emailSubject = subject?.trim() || 'Project inquiry';
   const smtp = getSmtpConfig();
+  const safeName = name?.trim() || 'Portfolio Visitor';
+  const safeEmail = email?.trim() || 'No email provided';
+  const safePhone = phone?.trim() || 'Not provided';
+  const safeMessage = message?.trim() || 'No message provided';
+  const submittedDate = new Date(submittedAt).toLocaleString('en-IN', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+    timeZone: 'Asia/Kolkata',
+  });
+  const replyHref = safeEmail.includes('@') ? `mailto:${safeEmail}?subject=Re: ${encodeURIComponent(emailSubject)}` : '';
 
   const info = await transporter.sendMail({
     from: `"${smtp.fromName}" <${smtp.user}>`,
     sender: smtp.user,
     to: to || getContactRecipient(),
-    replyTo: email,
-    subject: `New Contact Message: ${emailSubject}`,
+    replyTo: safeEmail.includes('@') ? safeEmail : undefined,
+    subject: `Portfolio Contact: ${emailSubject} - ${safeName}`,
     text: [
-      'New contact message',
+      'New portfolio contact message',
       '',
-      `Name: ${name}`,
-      `Email: ${email}`,
-      `Phone: ${phone || 'Not provided'}`,
+      `Contact ID: ${contactId || 'N/A'}`,
+      `Submitted: ${submittedDate}`,
+      `Name: ${safeName}`,
+      `Email: ${safeEmail}`,
+      `Phone: ${safePhone}`,
       `Subject: ${emailSubject}`,
       '',
       'Message:',
-      message,
+      safeMessage,
     ].join('\n'),
     html: `
-      <div style="font-family: Arial, sans-serif; color: #111827; line-height: 1.65;">
-        <h2 style="margin: 0 0 18px; color: #1d4ed8; font-size: 22px;">New contact message</h2>
-        <p><strong>Name:</strong> ${escapeHtml(name)}</p>
-        <p><strong>Email:</strong> <a href="mailto:${escapeHtml(email)}" style="color: #2563eb;">${escapeHtml(email)}</a></p>
-        <p><strong>Phone:</strong> ${escapeHtml(phone || 'Not provided')}</p>
-        <p><strong>Subject:</strong> ${escapeHtml(emailSubject)}</p>
-        <p style="margin-top: 22px;"><strong>Message:</strong></p>
-        <p style="white-space: pre-wrap; margin: 0;">${escapeHtml(message)}</p>
+      <div style="margin:0;padding:0;background:#f8fafc;font-family:Arial,sans-serif;color:#111827;">
+        <div style="max-width:680px;margin:0 auto;padding:28px 18px;">
+          <div style="background:#ffffff;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden;">
+            <div style="background:#2563eb;color:#ffffff;padding:22px 24px;">
+              <p style="margin:0 0 6px;font-size:12px;letter-spacing:1.8px;text-transform:uppercase;">Portfolio Contact Form</p>
+              <h2 style="margin:0;font-size:22px;line-height:1.35;">New message from ${escapeHtml(safeName)}</h2>
+            </div>
+            <div style="padding:24px;">
+              <table style="width:100%;border-collapse:collapse;font-size:15px;line-height:1.6;">
+                <tr>
+                  <td style="width:130px;padding:10px 0;color:#64748b;font-weight:bold;">Contact ID</td>
+                  <td style="padding:10px 0;color:#111827;">${escapeHtml(contactId || 'N/A')}</td>
+                </tr>
+                <tr>
+                  <td style="width:130px;padding:10px 0;color:#64748b;font-weight:bold;">Submitted</td>
+                  <td style="padding:10px 0;color:#111827;">${escapeHtml(submittedDate)}</td>
+                </tr>
+                <tr>
+                  <td style="width:130px;padding:10px 0;color:#64748b;font-weight:bold;">Name</td>
+                  <td style="padding:10px 0;color:#111827;">${escapeHtml(safeName)}</td>
+                </tr>
+                <tr>
+                  <td style="width:130px;padding:10px 0;color:#64748b;font-weight:bold;">Email</td>
+                  <td style="padding:10px 0;color:#111827;">
+                    <a href="mailto:${escapeHtml(safeEmail)}" style="color:#2563eb;text-decoration:none;">${escapeHtml(safeEmail)}</a>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="width:130px;padding:10px 0;color:#64748b;font-weight:bold;">Phone</td>
+                  <td style="padding:10px 0;color:#111827;">${escapeHtml(safePhone)}</td>
+                </tr>
+                <tr>
+                  <td style="width:130px;padding:10px 0;color:#64748b;font-weight:bold;">Subject</td>
+                  <td style="padding:10px 0;color:#111827;">${escapeHtml(emailSubject)}</td>
+                </tr>
+              </table>
+              <div style="margin-top:22px;padding:18px;border-radius:12px;background:#f1f5f9;border:1px solid #e2e8f0;">
+                <p style="margin:0 0 8px;color:#64748b;font-size:13px;font-weight:bold;text-transform:uppercase;letter-spacing:1px;">Message</p>
+                <p style="white-space:pre-wrap;margin:0;color:#111827;font-size:16px;line-height:1.7;">${escapeHtml(safeMessage)}</p>
+              </div>
+              ${replyHref ? `
+                <a href="${escapeHtml(replyHref)}" style="display:inline-block;margin-top:22px;background:#2563eb;color:#ffffff;text-decoration:none;border-radius:999px;padding:12px 18px;font-weight:bold;">
+                  Reply to ${escapeHtml(safeName)}
+                </a>
+              ` : ''}
+            </div>
+          </div>
+        </div>
       </div>
     `,
   });
@@ -269,11 +330,13 @@ export const submitContact = async (req, res) => {
     const contactId = result.insertId;
 
     sendContactEmailInBackground(contactId, {
+      contactId,
       name: normalizedName,
       email: normalizedEmail,
       phone: normalizedPhone,
       subject: normalizedSubject,
       message: normalizedMessage,
+      submittedAt: new Date(),
     });
 
     return res.status(201).json({
