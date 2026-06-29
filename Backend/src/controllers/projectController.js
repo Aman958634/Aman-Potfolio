@@ -107,6 +107,34 @@ const seedProjects = [
 
 let hasCheckedProjectSeed = false;
 
+const ensureProjectsReady = async (connection) => {
+  await connection.query(`
+    CREATE TABLE IF NOT EXISTS projects (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      title VARCHAR(255) NOT NULL,
+      description TEXT NOT NULL,
+      image TEXT DEFAULT NULL,
+      link VARCHAR(500) DEFAULT NULL,
+      tech_stack VARCHAR(500) DEFAULT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )
+  `);
+
+  const requiredColumns = [
+    ['image', 'TEXT DEFAULT NULL'],
+    ['link', 'VARCHAR(500) DEFAULT NULL'],
+    ['tech_stack', 'VARCHAR(500) DEFAULT NULL'],
+  ];
+
+  for (const [columnName, definition] of requiredColumns) {
+    const [columns] = await connection.query('SHOW COLUMNS FROM projects LIKE ?', [columnName]);
+    if (columns.length === 0) {
+      await connection.query(`ALTER TABLE projects ADD COLUMN ${columnName} ${definition}`);
+    }
+  }
+};
+
 const seedProjectsIfNeeded = async (connection) => {
   try {
     const [rows] = await connection.query(
@@ -135,6 +163,7 @@ export const getAllProjects = async (req, res) => {
   try {
     setNoCacheHeaders(res);
     const connection = await pool.getConnection();
+    await ensureProjectsReady(connection);
     if (!hasCheckedProjectSeed) {
       await seedProjectsIfNeeded(connection);
       hasCheckedProjectSeed = true;

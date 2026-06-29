@@ -1,8 +1,47 @@
 import pool from '../config/database.js';
 
+const defaultServices = [
+  ['Web Development', 'Build responsive, fast, and modern web applications with React, Node.js, and Tailwind CSS.', 'WD', 1],
+  ['UI/UX Design', 'Design polished interfaces focused on clarity, usability, and consistent branding.', 'UI', 2],
+  ['E-Commerce Solutions', 'Create secure online stores with checkout flow, product management, and performance optimizations.', 'EC', 3],
+];
+
+const ensureServicesReady = async (connection) => {
+  await connection.query(`
+    CREATE TABLE IF NOT EXISTS services (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      title VARCHAR(255) NOT NULL,
+      description TEXT NOT NULL,
+      icon VARCHAR(100) DEFAULT NULL,
+      position INT DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )
+  `);
+
+  const [iconColumn] = await connection.query('SHOW COLUMNS FROM services LIKE ?', ['icon']);
+  if (iconColumn.length === 0) {
+    await connection.query('ALTER TABLE services ADD COLUMN icon VARCHAR(100) DEFAULT NULL');
+  }
+
+  const [positionColumn] = await connection.query('SHOW COLUMNS FROM services LIKE ?', ['position']);
+  if (positionColumn.length === 0) {
+    await connection.query('ALTER TABLE services ADD COLUMN position INT DEFAULT 0');
+  }
+
+  const [rows] = await connection.query('SELECT COUNT(*) AS count FROM services');
+  if (Number(rows[0].count) === 0) {
+    await connection.query(
+      'INSERT INTO services (title, description, icon, position) VALUES ?',
+      [defaultServices]
+    );
+  }
+};
+
 export const getAllServices = async (req, res) => {
   try {
     const connection = await pool.getConnection();
+    await ensureServicesReady(connection);
     const [services] = await connection.query('SELECT * FROM services ORDER BY position ASC, id DESC');
     connection.release();
     res.json(services);
