@@ -1,27 +1,50 @@
 import nodemailer from 'nodemailer';
 import pool from '../config/database.js';
 
-const contactRecipient = process.env.CONTACT_TO_EMAIL || process.env.SMTP_USER || 'anovatechnologies5@gmail.com';
+const getContactRecipient = () => process.env.CONTACT_TO_EMAIL || process.env.SMTP_USER || 'anovatechnologies5@gmail.com';
+
+const escapeHtml = (value = '') => String(value)
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#039;');
+
+const ensureContactsReady = async (connection) => {
+  await connection.query(`
+    CREATE TABLE IF NOT EXISTS contacts (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      name VARCHAR(100) NOT NULL,
+      email VARCHAR(150) NOT NULL,
+      message TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+};
 
 const createTransporter = () => {
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
+  const user = process.env.SMTP_USER?.trim();
+  const pass = process.env.SMTP_PASS?.trim();
 
   if (!user || !pass) {
     return null;
   }
 
+  const port = Number(process.env.SMTP_PORT || 587);
+  const secure = String(process.env.SMTP_SECURE || '').toLowerCase() === 'true' || port === 465;
+
   return nodemailer.createTransport({
-    service: 'gmail',
     host: process.env.SMTP_HOST || 'smtp.gmail.com',
-    port: Number(process.env.SMTP_PORT || 587),
-    secure: String(process.env.SMTP_SECURE || 'false') === 'true',
-    requireTLS: true,
-    authMethod: 'LOGIN',
+    port,
+    secure,
+    requireTLS: !secure,
     auth: {
       user,
       pass,
     },
+    connectionTimeout: 15000,
+    greetingTimeout: 15000,
+    socketTimeout: 20000,
     tls: {
       rejectUnauthorized: false,
     },
@@ -38,6 +61,7 @@ export const submitContact = async (req, res) => {
     }
 
     connection = await pool.getConnection();
+    await ensureContactsReady(connection);
 
     await connection.query(
       'INSERT INTO contacts (name, email, message) VALUES (?, ?, ?)',
@@ -47,37 +71,46 @@ export const submitContact = async (req, res) => {
     const transporter = createTransporter();
     let emailDelivered = false;
 
-    if (transporter) {
-      try {
-        await transporter.verify();
-        await transporter.sendMail({
-          from: process.env.SMTP_USER,
-          to: contactRecipient,
-          replyTo: email,
-          subject: `New portfolio message from ${name}`,
-          text: `Name: ${name}\nEmail: ${email}\n\nMessage:\n${message}`,
-          html: `
-            <div style="font-family: Arial, sans-serif; color: #0f172a; line-height: 1.6;">
-              <h2 style="margin-bottom: 12px;">New Portfolio Contact Message</h2>
-              <p><strong>Name:</strong> ${name}</p>
-              <p><strong>Email:</strong> ${email}</p>
-              <p><strong>Message:</strong></p>
-              <p style="white-space: pre-wrap; background: #f8fafc; padding: 16px; border-radius: 12px; border: 1px solid #e2e8f0;">${message}</p>
-            </div>
-          `,
-        });
-        emailDelivered = true;
-      } catch (mailError) {
-        console.error('Email delivery failed after saving contact:', mailError);
-      }
-    } else {
+    if (!transporter) {
       console.warn('SMTP_USER/SMTP_PASS not configured; contact message saved to DB only.');
+      return res.status(503).json({
+        message: 'Message saved, but email is not configured. Set SMTP_USER and SMTP_PASS in Railway.',
+        emailDelivered,
+        emailConfigured: false,
+      });
+    }
+
+    try {
+      await transporter.verify();
+      await transporter.sendMail({
+        from: `"Portfolio Contact" <${process.env.SMTP_USER}>`,
+        to: getContactRecipient(),
+        replyTo: email,
+        subject: `New portfolio message from ${name}`,
+        text: `Name: ${name}\nEmail: ${email}\n\nMessage:\n${message}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; color: #0f172a; line-height: 1.6;">
+            <h2 style="margin-bottom: 12px;">New Portfolio Contact Message</h2>
+            <p><strong>Name:</strong> ${escapeHtml(name)}</p>
+            <p><strong>Email:</strong> ${escapeHtml(email)}</p>
+            <p><strong>Message:</strong></p>
+            <p style="white-space: pre-wrap; background: #f8fafc; padding: 16px; border-radius: 12px; border: 1px solid #e2e8f0;">${escapeHtml(message)}</p>
+          </div>
+        `,
+      });
+      emailDelivered = true;
+    } catch (mailError) {
+      console.error('Email delivery failed after saving contact:', mailError);
+      return res.status(502).json({
+        message: 'Message saved, but Gmail delivery failed. Check SMTP_USER, SMTP_PASS app password, and CONTACT_TO_EMAIL in Railway.',
+        emailDelivered,
+        emailConfigured: Boolean(process.env.SMTP_USER && process.env.SMTP_PASS),
+        error: mailError.code || mailError.responseCode || mailError.message,
+      });
     }
 
     return res.status(201).json({
-      message: emailDelivered
-        ? 'Message sent successfully. I will get back to you soon!'
-        : 'Message saved successfully. Email delivery is temporarily unavailable.',
+      message: 'Message sent successfully. I will get back to you soon!',
       emailDelivered,
       emailConfigured: Boolean(process.env.SMTP_USER && process.env.SMTP_PASS),
     });
@@ -91,6 +124,7 @@ export const submitContact = async (req, res) => {
 export const getAllContacts = async (req, res) => {
   try {
     const connection = await pool.getConnection();
+    await ensureContactsReady(connection);
     const [contacts] = await connection.query('SELECT * FROM contacts ORDER BY created_at DESC');
     connection.release();
     res.json(contacts);

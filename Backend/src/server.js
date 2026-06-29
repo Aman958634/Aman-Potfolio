@@ -167,11 +167,13 @@ app.use('/uploads', express.static(uploadDir, {
 
 // Routes
 const handleImageUpload = (req, res) => {
-  if (!req.file) {
+  const file = req.file || req.files?.[0];
+
+  if (!file) {
     return res.status(400).json({ message: 'Image file is required' });
   }
 
-  const filePath = `/uploads/${req.file.filename}`;
+  const filePath = `/uploads/${file.filename}`;
 
   return res.status(201).json({
     message: 'Image uploaded successfully',
@@ -180,8 +182,8 @@ const handleImageUpload = (req, res) => {
   });
 };
 
-app.post('/api/upload', verifyToken, upload.single('image'), handleImageUpload);
-app.post('/upload', verifyToken, upload.single('image'), handleImageUpload);
+app.post('/api/upload', verifyToken, upload.any(), handleImageUpload);
+app.post('/upload', verifyToken, upload.any(), handleImageUpload);
 
 app.use('/api/projects', projectRoutes);
 app.use('/api/skills', skillRoutes);

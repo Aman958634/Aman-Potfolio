@@ -64,6 +64,16 @@ api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
     config.headers = config.headers || {};
+
+    if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
+      if (typeof config.headers.delete === 'function') {
+        config.headers.delete('Content-Type');
+      } else {
+        delete config.headers['Content-Type'];
+        delete config.headers['content-type'];
+      }
+    }
+
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }

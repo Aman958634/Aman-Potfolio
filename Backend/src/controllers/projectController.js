@@ -105,8 +105,6 @@ const seedProjects = [
   ],
 ];
 
-let hasCheckedProjectSeed = false;
-
 const ensureProjectsReady = async (connection) => {
   await connection.query(`
     CREATE TABLE IF NOT EXISTS projects (
@@ -164,10 +162,7 @@ export const getAllProjects = async (req, res) => {
     setNoCacheHeaders(res);
     const connection = await pool.getConnection();
     await ensureProjectsReady(connection);
-    if (!hasCheckedProjectSeed) {
-      await seedProjectsIfNeeded(connection);
-      hasCheckedProjectSeed = true;
-    }
+    await seedProjectsIfNeeded(connection);
     const [projects] = await connection.query('SELECT * FROM projects');
     connection.release();
     res.json(projects.map(normalizeProjectRow));
