@@ -6,6 +6,8 @@ const Contact = () => {
   const [formData, setFormData] = useState({ name: '', email: '', phone: '', subject: '', message: '' });
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [statusMessage, setStatusMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
   const [section, setSection] = useState({
     title: 'Contact',
     subtitle: "Let’s create something amazing together.",
@@ -90,10 +92,19 @@ const Contact = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setSuccess(false);
+    setStatusMessage('');
+    setErrorMessage('');
 
     try {
-      await contactAPI.submit(formData);
+      const response = await contactAPI.submit(formData);
+
+      if (response.data?.emailDelivered !== true) {
+        throw new Error(response.data?.message || 'Gmail delivery could not be confirmed.');
+      }
+
       setSuccess(true);
+      setStatusMessage(response.data?.message || 'Message sent successfully to Gmail.');
       setFormData({ name: '', email: '', phone: '', subject: '', message: '' });
       try {
         const bc = new BroadcastChannel('portfolio-cms');
@@ -110,7 +121,7 @@ const Contact = () => {
       );
     } catch (error) {
       console.error('Error submitting form:', error);
-      alert(error.message || 'Failed to send message. Please try again.');
+      setErrorMessage(error.message || 'Failed to send message to Gmail. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -152,10 +163,15 @@ const Contact = () => {
               <div className="space-y-6 text-center">
                 <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-neon-blue/10 text-4xl text-neon-blue">✈️</div>
                 <h3 className="text-3xl font-semibold text-slate-950">Message sent</h3>
-                <p className="text-slate-600">Thanks for reaching out — I’ll reply within 24 hours.</p>
+                <p className="text-slate-600">{statusMessage || 'Thanks for reaching out. I will reply within 24 hours.'}</p>
               </div>
             ) : (
               <form ref={formRef} onSubmit={handleSubmit} className="space-y-5 sm:space-y-6 reveal-up reveal-up-delay-1">
+                {errorMessage && (
+                  <div className="rounded-3xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-medium text-red-700">
+                    {errorMessage}
+                  </div>
+                )}
                 <div>
                   <label htmlFor="contact-name" className="block text-slate-700 font-semibold mb-2">Your Name</label>
                   <input

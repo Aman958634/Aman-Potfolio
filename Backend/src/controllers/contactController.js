@@ -72,7 +72,7 @@ const createTransporter = () => {
     return null;
   }
 
-  return nodemailer.createTransport({
+  const options = {
     host: smtp.host,
     port: smtp.port,
     secure: smtp.secure,
@@ -87,7 +87,13 @@ const createTransporter = () => {
     tls: {
       rejectUnauthorized: false,
     },
-  });
+  };
+
+  if (smtp.host === 'smtp.gmail.com') {
+    options.service = 'gmail';
+  }
+
+  return nodemailer.createTransport(options);
 };
 
 const getEmailConfigStatus = () => {
@@ -127,7 +133,7 @@ const sendPortfolioEmail = async ({ name, email, phone = '', subject = 'Project 
   const emailSubject = subject?.trim() || 'Project inquiry';
   const smtp = getSmtpConfig();
 
-  return transporter.sendMail({
+  const info = await transporter.sendMail({
     from: `"${smtp.fromName}" <${smtp.user}>`,
     sender: smtp.user,
     to: to || getContactRecipient(),
@@ -156,6 +162,14 @@ const sendPortfolioEmail = async ({ name, email, phone = '', subject = 'Project 
       </div>
     `,
   });
+
+  if (info.rejected?.length) {
+    const error = new Error(`Gmail rejected recipient(s): ${info.rejected.join(', ')}`);
+    error.code = 'SMTP_RECIPIENT_REJECTED';
+    throw error;
+  }
+
+  return info;
 };
 
 export const submitContact = async (req, res) => {
@@ -169,45 +183,59 @@ export const submitContact = async (req, res) => {
       message,
     } = req.body;
 
-    if (!name || !email || !message) {
-      return res.status(400).json({ message: 'All fields are required' });
-    }
-
+    const normalizedName = String(name || '').trim();
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+    const normalizedMessage = String(message || '').trim();
     const normalizedPhone = String(phone || '').trim();
     const normalizedSubject = String(subject || '').trim() || 'Project inquiry';
+
+    if (!normalizedName || !normalizedEmail || !normalizedMessage) {
+      return res.status(400).json({ message: 'Name, email, and message are required.' });
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      return res.status(400).json({ message: 'Please enter a valid email address.' });
+    }
 
     connection = await pool.getConnection();
     await ensureContactsReady(connection);
 
     await connection.query(
       'INSERT INTO contacts (name, email, phone, subject, message) VALUES (?, ?, ?, ?, ?)',
-      [name, email, normalizedPhone, normalizedSubject, message]
+      [normalizedName, normalizedEmail, normalizedPhone, normalizedSubject, normalizedMessage]
     );
 
-    let emailDelivered = false;
-
     try {
-      await sendPortfolioEmail({ name, email, phone: normalizedPhone, subject: normalizedSubject, message });
-      emailDelivered = true;
+      const info = await sendPortfolioEmail({
+        name: normalizedName,
+        email: normalizedEmail,
+        phone: normalizedPhone,
+        subject: normalizedSubject,
+        message: normalizedMessage,
+      });
+
+      return res.status(201).json({
+        message: 'Message sent successfully to Gmail. I will get back to you soon!',
+        saved: true,
+        emailDelivered: true,
+        emailConfigured: getEmailConfigStatus().configured,
+        messageId: info.messageId,
+        accepted: info.accepted,
+      });
     } catch (mailError) {
       console.error('Email delivery failed after saving contact:', mailError);
-      return res.status(201).json({
-        message: 'Message saved successfully. Gmail delivery needs SMTP settings checked.',
-        emailDelivered,
+
+      return res.status(502).json({
+        message: 'Message saved, but Gmail delivery failed. Please check SMTP_USER, SMTP_PASS Gmail app password, and CONTACT_TO_EMAIL in Railway.',
+        saved: true,
+        emailDelivered: false,
         emailConfigured: getEmailConfigStatus().configured,
-        emailConfig: getEmailConfigStatus(),
         warning: mailError.code === 'SMTP_NOT_CONFIGURED'
           ? 'Set SMTP_USER and SMTP_PASS in Railway Variables to send Gmail notifications.'
           : 'Check SMTP_USER, SMTP_PASS Gmail app password, and CONTACT_TO_EMAIL in Railway.',
         error: mailError.code || mailError.responseCode || mailError.message,
       });
     }
-
-    return res.status(201).json({
-      message: 'Message sent successfully. I will get back to you soon!',
-      emailDelivered,
-      emailConfigured: getEmailConfigStatus().configured,
-    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   } finally {
