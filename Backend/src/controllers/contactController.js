@@ -98,6 +98,106 @@ const createTransporter = () => {
   });
 };
 
+const formatContactDate = (value) => {
+  if (!value) return '';
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+
+  return date.toLocaleString('en-IN', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+    timeZone: 'Asia/Kolkata',
+  });
+};
+
+const normalizeContactEmailPayload = ({
+  contactId,
+  name,
+  email,
+  phone = '',
+  subject = '',
+  message,
+  savedAt,
+  submittedAt,
+}) => {
+  const values = {
+    contactId: contactId ? String(contactId) : '',
+    name: String(name ?? ''),
+    email: String(email ?? ''),
+    phone: String(phone ?? ''),
+    subject: String(subject ?? ''),
+    message: String(message ?? ''),
+    submittedAt: formatContactDate(submittedAt || savedAt),
+  };
+
+  return {
+    ...values,
+    replyEmail: values.email.trim(),
+    displayPhone: values.phone || 'Not provided',
+    displaySubject: values.subject || 'Project inquiry',
+  };
+};
+
+const escapeHtml = (value) => String(value ?? '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#39;');
+
+const buildContactEmailContent = (contact) => {
+  const data = normalizeContactEmailPayload(contact);
+  const rows = [
+    ['Name', data.name],
+    ['Email', data.email],
+    ['Phone', data.displayPhone],
+    ['Subject', data.displaySubject],
+  ];
+
+  if (data.contactId) rows.unshift(['Admin Message ID', data.contactId]);
+  if (data.submittedAt) rows.push(['Submitted At', data.submittedAt]);
+
+  const text = [
+    'New contact form message',
+    '',
+    ...rows.map(([label, value]) => `${label}: ${value}`),
+    '',
+    'Message:',
+    data.message,
+  ].join('\n');
+
+  const detailRowsHtml = rows.map(([label, value]) => `
+    <tr>
+      <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;color:#475569;font-weight:700;width:160px;">${escapeHtml(label)}</td>
+      <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;color:#0f172a;">${escapeHtml(value)}</td>
+    </tr>
+  `).join('');
+
+  const html = `
+    <div style="margin:0;padding:24px;background:#f8fafc;font-family:Arial,Helvetica,sans-serif;color:#0f172a;">
+      <div style="max-width:640px;margin:0 auto;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">
+        <div style="padding:20px 24px;background:#0f172a;color:#ffffff;">
+          <h1 style="margin:0;font-size:20px;line-height:1.35;">New contact form message</h1>
+        </div>
+        <table role="presentation" cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;">
+          ${detailRowsHtml}
+        </table>
+        <div style="padding:20px 24px;">
+          <div style="margin:0 0 10px;color:#475569;font-weight:700;">Message</div>
+          <div style="white-space:pre-wrap;line-height:1.6;color:#0f172a;">${escapeHtml(data.message)}</div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  return {
+    data,
+    text,
+    html,
+  };
+};
+
 const getEmailConfigStatus = () => {
   const smtp = getSmtpConfig();
 
@@ -148,6 +248,8 @@ const sendPortfolioEmail = async ({
   phone = '',
   subject = '',
   message,
+  savedAt,
+  submittedAt,
   to,
 }) => {
   const transporter = createTransporter();
@@ -160,28 +262,25 @@ const sendPortfolioEmail = async ({
 
   const emailSubject = subject || 'Portfolio contact message';
   const smtp = getSmtpConfig();
-  const formName = String(name ?? '');
-  const formEmail = String(email ?? '');
-  const formPhone = String(phone ?? '');
-  const formSubject = String(subject ?? '');
-  const formMessage = String(message ?? '');
-  const replyEmail = formEmail.trim();
+  const { data, text, html } = buildContactEmailContent({
+    contactId,
+    name,
+    email,
+    phone,
+    subject,
+    message,
+    savedAt,
+    submittedAt,
+  });
 
   const info = await transporter.sendMail({
     from: `"${smtp.fromName}" <${smtp.user}>`,
     sender: smtp.user,
     to: to || getContactRecipient(),
-    replyTo: replyEmail.includes('@') ? replyEmail : undefined,
+    replyTo: data.replyEmail.includes('@') ? data.replyEmail : undefined,
     subject: emailSubject,
-    text: [
-      `Name: ${formName}`,
-      `Email: ${formEmail}`,
-      `Phone: ${formPhone}`,
-      `Subject: ${formSubject}`,
-      '',
-      'Message:',
-      formMessage,
-    ].join('\n'),
+    text,
+    html,
   });
 
   if (info.rejected?.length) {
