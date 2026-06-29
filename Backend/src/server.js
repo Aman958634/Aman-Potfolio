@@ -33,11 +33,45 @@ console.log('SERVER FILE:', import.meta.url);
 console.log('PWD:', process.cwd());
 
 // Middleware
-const allowedOrigins = [
+const defaultAllowedOrigins = [
   'https://aman-potfolio-amber.vercel.app',
   'https://aman-potfolio-230yp3hw8-amanullaathaniya-3992s-projects.vercel.app',
+  'https://aman-potfolio-git-main-amanullaathaniya-3992s-projects.vercel.app',
+  'https://aman-potfolio-production.up.railway.app',
+  'https://aman-portfolio-production.up.railway.app',
   'http://localhost:5173',
+  'http://localhost:5174',
+  'http://localhost:3000',
 ];
+
+const envAllowedOrigins = [
+  process.env.FRONTEND_URL,
+  process.env.CORS_ORIGINS,
+]
+  .filter(Boolean)
+  .flatMap((value) => value.split(','))
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+const allowedOrigins = new Set([...defaultAllowedOrigins, ...envAllowedOrigins]);
+
+const normalizeOrigin = (origin) => new URL(origin).origin;
+
+const isAllowedOrigin = (origin) => {
+  if (!origin) return true;
+
+  try {
+    const parsedOrigin = normalizeOrigin(origin);
+    const hostname = new URL(parsedOrigin).hostname;
+    return (
+      allowedOrigins.has(parsedOrigin) ||
+      hostname.endsWith('.vercel.app')
+    );
+  } catch (error) {
+    console.log('Invalid origin URL:', origin, error?.message);
+    return false;
+  }
+};
 
 app.use((req, res, next) => {
   const origin = req.headers.origin;
@@ -49,14 +83,6 @@ app.use((req, res, next) => {
     'ORIGIN:',
     origin
   );
-
-  if (origin && allowedOrigins.includes(origin)) {
-    res.header('Access-Control-Allow-Origin', origin);
-  }
-
-  res.header('Access-Control-Allow-Credentials', 'true');
-  res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type,Authorization');
 
   res.on('finish', () => {
     console.log(
@@ -77,18 +103,21 @@ app.use((req, res, next) => {
 
 const corsOptions = {
   origin: function(origin, callback) {
-    if (!origin) return callback(null, true);
-
-    if (allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      console.log('Blocked Origin:', origin);
-      callback(new Error('Not allowed by CORS'));
+    if (!origin) {
+      return callback(null, true);
     }
+
+    if (isAllowedOrigin(origin)) {
+      return callback(null, true);
+    }
+
+    console.log('Blocked Origin:', origin);
+    return callback(null, false);
   },
   credentials: true,
   methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
-  allowedHeaders: ['Content-Type','Authorization']
+  allowedHeaders: ['Content-Type','Authorization','Accept','X-Requested-With'],
+  optionsSuccessStatus: 204
 };
 
 app.use(cors(corsOptions));
@@ -131,6 +160,8 @@ app.get('/api/debug/cors', (req, res) => {
     path: req.path,
     method: req.method,
     origin: req.headers.origin,
+    originAllowed: isAllowedOrigin(req.headers.origin),
+    allowedOrigins: [...allowedOrigins],
     cors: true
   });
 });
@@ -170,10 +201,15 @@ app.use((err, req, res, next) => {
   console.error('ERROR HANDLER:', err);
 
   if (!res.headersSent) {
-    res.header('Access-Control-Allow-Origin', req.headers.origin || '');
-    res.header('Access-Control-Allow-Credentials', 'true');
-    res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+    const origin = req.headers.origin;
+
+    if (isAllowedOrigin(origin)) {
+      res.header('Access-Control-Allow-Origin', origin || '*');
+      res.header('Access-Control-Allow-Credentials', 'true');
+      res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
+      res.header('Access-Control-Allow-Headers', 'Content-Type,Authorization,Accept,X-Requested-With');
+      res.header('Vary', 'Origin');
+    }
   }
 
   if (res.headersSent) {
