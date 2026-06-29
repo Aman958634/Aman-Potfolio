@@ -172,7 +172,6 @@ const sendPortfolioEmail = async ({
   message,
   submittedAt = new Date(),
   savedAt,
-  emailStatus,
   to,
 }) => {
   const transporter = createTransporter();
@@ -191,7 +190,6 @@ const sendPortfolioEmail = async ({
   const safePhone = phone?.trim() || 'Not provided';
   const safeMessage = message?.trim() || 'No message provided';
   const savedDate = formatDateTime(savedAt || submittedAt);
-  const safeEmailStatus = emailStatus?.trim() || 'queued';
   const replyHref = safeEmail.includes('@') ? `mailto:${safeEmail}?subject=Re: ${encodeURIComponent(emailSubject)}` : '';
 
   const info = await transporter.sendMail({
@@ -199,14 +197,13 @@ const sendPortfolioEmail = async ({
     sender: smtp.user,
     to: to || getContactRecipient(),
     replyTo: safeEmail.includes('@') ? safeEmail : undefined,
-    subject: `New database contact #${safeContactId}: ${safeName}`,
+    subject: `New portfolio message from ${safeName}: ${emailSubject}`,
     text: [
-      'New contact saved in database',
-      'This Gmail notification was generated from the contacts table saved row.',
+      'New portfolio contact message',
+      'The data below is the exact contact form data saved in the database.',
       '',
       `Contact ID: ${safeContactId}`,
-      `Saved At: ${savedDate}`,
-      `Email Status: ${safeEmailStatus}`,
+      `Submitted At: ${savedDate}`,
       `Name: ${safeName}`,
       `Email: ${safeEmail}`,
       `Phone: ${safePhone}`,
@@ -219,27 +216,19 @@ const sendPortfolioEmail = async ({
       <div style="margin:0;padding:0;background:#f4f7fb;font-family:Arial,Helvetica,sans-serif;color:#111827;">
         <div style="max-width:720px;margin:0 auto;padding:28px 16px;">
           <div style="background:#ffffff;border:1px solid #dbe3ef;border-radius:14px;overflow:hidden;">
-            <div style="background:#174ea6;color:#ffffff;padding:24px;">
-              <p style="margin:0 0 8px;font-size:12px;letter-spacing:1.6px;text-transform:uppercase;">New Contact Saved In Database</p>
-              <h2 style="margin:0;font-size:23px;line-height:1.35;">${escapeHtml(safeName)}</h2>
-              <p style="margin:8px 0 0;font-size:14px;color:#dbeafe;">Contact ID: #${escapeHtml(safeContactId)}</p>
+            <div style="background:#174ea6;color:#ffffff;padding:24px 26px;">
+              <p style="margin:0 0 8px;font-size:12px;letter-spacing:1.6px;text-transform:uppercase;">New Portfolio Contact Message</p>
+              <h2 style="margin:0;font-size:23px;line-height:1.35;">${escapeHtml(emailSubject)}</h2>
+              <p style="margin:8px 0 0;font-size:14px;color:#dbeafe;">From ${escapeHtml(safeName)} &lt;${escapeHtml(safeEmail)}&gt;</p>
             </div>
-            <div style="padding:24px;">
+            <div style="padding:24px 26px;">
               <p style="margin:0 0 18px;color:#475569;font-size:14px;line-height:1.6;">
-                Ye email <strong>contacts</strong> table me save hui row ke data se generate hua hai.
+                Ye contact form se submit hua exact data hai. Same data <strong>contacts</strong> table me save hua hai.
               </p>
 
               <table style="width:100%;border-collapse:collapse;font-size:15px;line-height:1.6;border:1px solid #e2e8f0;">
                 <tr>
-                  <td colspan="2" style="padding:12px 14px;background:#f8fafc;color:#334155;font-weight:bold;text-transform:uppercase;letter-spacing:1px;font-size:12px;border-bottom:1px solid #e2e8f0;">Saved Row Data</td>
-                </tr>
-                <tr>
-                  <td style="width:150px;padding:11px 14px;color:#64748b;font-weight:bold;border-bottom:1px solid #e2e8f0;">ID</td>
-                  <td style="padding:11px 14px;color:#111827;border-bottom:1px solid #e2e8f0;">${escapeHtml(safeContactId)}</td>
-                </tr>
-                <tr>
-                  <td style="width:150px;padding:11px 14px;color:#64748b;font-weight:bold;border-bottom:1px solid #e2e8f0;">Created At</td>
-                  <td style="padding:11px 14px;color:#111827;border-bottom:1px solid #e2e8f0;">${escapeHtml(savedDate)}</td>
+                  <td colspan="2" style="padding:12px 14px;background:#f8fafc;color:#334155;font-weight:bold;text-transform:uppercase;letter-spacing:1px;font-size:12px;border-bottom:1px solid #e2e8f0;">Submitted Form Data</td>
                 </tr>
                 <tr>
                   <td style="width:150px;padding:11px 14px;color:#64748b;font-weight:bold;border-bottom:1px solid #e2e8f0;">Name</td>
@@ -260,12 +249,16 @@ const sendPortfolioEmail = async ({
                   <td style="padding:11px 14px;color:#111827;border-bottom:1px solid #e2e8f0;">${escapeHtml(emailSubject)}</td>
                 </tr>
                 <tr>
-                  <td style="width:150px;padding:11px 14px;color:#64748b;font-weight:bold;">Email Status</td>
-                  <td style="padding:11px 14px;color:#111827;">${escapeHtml(safeEmailStatus)}</td>
+                  <td style="width:150px;padding:11px 14px;color:#64748b;font-weight:bold;border-bottom:1px solid #e2e8f0;">Contact ID</td>
+                  <td style="padding:11px 14px;color:#111827;border-bottom:1px solid #e2e8f0;">#${escapeHtml(safeContactId)}</td>
+                </tr>
+                <tr>
+                  <td style="width:150px;padding:11px 14px;color:#64748b;font-weight:bold;">Submitted At</td>
+                  <td style="padding:11px 14px;color:#111827;">${escapeHtml(savedDate)}</td>
                 </tr>
               </table>
 
-              <div style="margin-top:20px;padding:18px;border-radius:10px;background:#f8fafc;border:1px solid #e2e8f0;">
+              <div style="margin-top:20px;padding:18px;border-radius:10px;background:#f8fafc;border:1px solid #e2e8f0;border-left:4px solid #174ea6;">
                 <p style="margin:0 0 10px;color:#334155;font-size:12px;font-weight:bold;text-transform:uppercase;letter-spacing:1px;">Message</p>
                 <p style="white-space:pre-wrap;margin:0;color:#111827;font-size:16px;line-height:1.7;">${escapeHtml(safeMessage)}</p>
               </div>
@@ -327,7 +320,6 @@ const mapContactRowToEmailPayload = (contact) => ({
   message: contact.message,
   savedAt: contact.created_at,
   submittedAt: contact.created_at,
-  emailStatus: contact.email_status,
 });
 
 const sendContactEmailWithRetry = async (contactId, fallbackPayload) => {
