@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { projectsAPI, resolveImageUrl } from '../services/api';
+import { API_URL, projectsAPI, resolveImageUrl } from '../services/api';
 import ProjectImageUpload from '../components/ProjectImageUpload';
 
 const getFallbackImage = (title = '') => {
@@ -48,15 +48,49 @@ const AdminProjectsAdmin = () => {
 
   const imagePreview = isRenderableImageSource(form.image) ? form.image.trim() : getFallbackImage(form.title);
 
+  const normalizeProjects = (payload) => {
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload?.projects)) return payload.projects;
+    if (Array.isArray(payload?.data)) return payload.data;
+    return [];
+  };
+
+  const fetchProjectsDirectly = async () => {
+    const response = await fetch(`${API_URL}/projects?t=${Date.now()}`, {
+      cache: 'no-store',
+      headers: {
+        Accept: 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Projects API failed with ${response.status}`);
+    }
+
+    return normalizeProjects(await response.json());
+  };
+
   const loadProjects = async () => {
     setLoading(true);
     setError(null);
     try {
       const response = await projectsAPI.getAll();
-      setProjects(response.data || []);
+      let nextProjects = normalizeProjects(response.data);
+
+      if (nextProjects.length === 0) {
+        nextProjects = await fetchProjectsDirectly();
+      }
+
+      setProjects(nextProjects);
     } catch (err) {
-      setError('Failed to load projects: ' + (err.message || err));
-      setProjects([]);
+      try {
+        const fallbackProjects = await fetchProjectsDirectly();
+        setProjects(fallbackProjects);
+        setError(null);
+      } catch (fallbackError) {
+        setError('Failed to load projects: ' + (fallbackError.message || err.message || err));
+        setProjects([]);
+      }
     } finally {
       setLoading(false);
     }
@@ -217,9 +251,17 @@ const AdminProjectsAdmin = () => {
       </div>
 
       <div className="rounded border border-slate-200 bg-white p-6 shadow-sm shadow-slate-200/50">
-        <h3 className="text-xl font-semibold mb-4">Project list</h3>
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h3 className="text-xl font-semibold">Project list</h3>
+          <button type="button" onClick={loadProjects} className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700">
+            Reload Projects
+          </button>
+        </div>
+        {error && <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
         <div className="space-y-4">
-          {projects.length === 0 ? (
+          {loading ? (
+            <div className="text-slate-500">Loading projects...</div>
+          ) : projects.length === 0 ? (
             <div className="text-slate-500">No portfolio items yet.</div>
           ) : (
             projects.map((project) => (

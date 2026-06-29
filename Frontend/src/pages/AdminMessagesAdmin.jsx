@@ -3,6 +3,8 @@ import { contactAPI } from '../services/api';
 
 const AdminMessagesAdmin = () => {
   const [messages, setMessages] = useState([]);
+  const [feedback, setFeedback] = useState('');
+  const [testingEmail, setTestingEmail] = useState(false);
 
   const fetch = async () => {
     try {
@@ -10,6 +12,7 @@ const AdminMessagesAdmin = () => {
       setMessages(res.data || []);
     } catch (e) {
       setMessages([]);
+      setFeedback(e.message || 'Unable to load messages.');
     }
   };
 
@@ -46,9 +49,37 @@ const AdminMessagesAdmin = () => {
     }
   };
 
+  const handleTestEmail = async () => {
+    setTestingEmail(true);
+    setFeedback('');
+
+    try {
+      const response = await contactAPI.testEmail();
+      setFeedback(response.data?.message || 'Test email sent successfully.');
+    } catch (error) {
+      setFeedback(error.message || 'Test email failed.');
+    } finally {
+      setTestingEmail(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-100 p-8">
-      <h2 className="text-2xl font-semibold mb-4">Messages</h2>
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-2xl font-semibold">Messages</h2>
+          <p className="mt-1 text-sm text-slate-500">Saved contact form messages and Gmail delivery test.</p>
+        </div>
+        <button
+          type="button"
+          onClick={handleTestEmail}
+          disabled={testingEmail}
+          className="rounded-full bg-violet-600 px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {testingEmail ? 'Sending Test...' : 'Send Test Gmail'}
+        </button>
+      </div>
+      {feedback && <div className="mb-4 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700">{feedback}</div>}
       <div className="border bg-white p-4">
         {messages.length === 0 ? (
           <div className="text-slate-500">No messages.</div>

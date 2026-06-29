@@ -51,6 +51,45 @@ const createTransporter = () => {
   });
 };
 
+const getEmailConfigStatus = () => ({
+  host: process.env.SMTP_HOST || 'smtp.gmail.com',
+  port: Number(process.env.SMTP_PORT || 587),
+  secure: String(process.env.SMTP_SECURE || '').toLowerCase() === 'true' || Number(process.env.SMTP_PORT || 587) === 465,
+  user: process.env.SMTP_USER || '',
+  recipient: getContactRecipient(),
+  hasPassword: Boolean(process.env.SMTP_PASS),
+});
+
+const sendPortfolioEmail = async ({ name, email, message, to }) => {
+  const transporter = createTransporter();
+
+  if (!transporter) {
+    const error = new Error('SMTP_USER and SMTP_PASS are required');
+    error.code = 'SMTP_NOT_CONFIGURED';
+    throw error;
+  }
+
+  await transporter.verify();
+
+  return transporter.sendMail({
+    from: `"Portfolio Contact" <${process.env.SMTP_USER}>`,
+    sender: process.env.SMTP_USER,
+    to: to || getContactRecipient(),
+    replyTo: email,
+    subject: `New portfolio message from ${name}`,
+    text: `Name: ${name}\nEmail: ${email}\n\nMessage:\n${message}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; color: #0f172a; line-height: 1.6;">
+        <h2 style="margin-bottom: 12px;">New Portfolio Contact Message</h2>
+        <p><strong>Name:</strong> ${escapeHtml(name)}</p>
+        <p><strong>Email:</strong> ${escapeHtml(email)}</p>
+        <p><strong>Message:</strong></p>
+        <p style="white-space: pre-wrap; background: #f8fafc; padding: 16px; border-radius: 12px; border: 1px solid #e2e8f0;">${escapeHtml(message)}</p>
+      </div>
+    `,
+  });
+};
+
 export const submitContact = async (req, res) => {
   let connection;
   try {
@@ -68,43 +107,20 @@ export const submitContact = async (req, res) => {
       [name, email, message]
     );
 
-    const transporter = createTransporter();
     let emailDelivered = false;
 
-    if (!transporter) {
-      console.warn('SMTP_USER/SMTP_PASS not configured; contact message saved to DB only.');
-      return res.status(503).json({
-        message: 'Message saved, but email is not configured. Set SMTP_USER and SMTP_PASS in Railway.',
-        emailDelivered,
-        emailConfigured: false,
-      });
-    }
-
     try {
-      await transporter.verify();
-      await transporter.sendMail({
-        from: `"Portfolio Contact" <${process.env.SMTP_USER}>`,
-        to: getContactRecipient(),
-        replyTo: email,
-        subject: `New portfolio message from ${name}`,
-        text: `Name: ${name}\nEmail: ${email}\n\nMessage:\n${message}`,
-        html: `
-          <div style="font-family: Arial, sans-serif; color: #0f172a; line-height: 1.6;">
-            <h2 style="margin-bottom: 12px;">New Portfolio Contact Message</h2>
-            <p><strong>Name:</strong> ${escapeHtml(name)}</p>
-            <p><strong>Email:</strong> ${escapeHtml(email)}</p>
-            <p><strong>Message:</strong></p>
-            <p style="white-space: pre-wrap; background: #f8fafc; padding: 16px; border-radius: 12px; border: 1px solid #e2e8f0;">${escapeHtml(message)}</p>
-          </div>
-        `,
-      });
+      await sendPortfolioEmail({ name, email, message });
       emailDelivered = true;
     } catch (mailError) {
       console.error('Email delivery failed after saving contact:', mailError);
-      return res.status(502).json({
-        message: 'Message saved, but Gmail delivery failed. Check SMTP_USER, SMTP_PASS app password, and CONTACT_TO_EMAIL in Railway.',
+      return res.status(mailError.code === 'SMTP_NOT_CONFIGURED' ? 503 : 502).json({
+        message: mailError.code === 'SMTP_NOT_CONFIGURED'
+          ? 'Message saved, but email is not configured. Set SMTP_USER and SMTP_PASS in Railway.'
+          : 'Message saved, but Gmail delivery failed. Check SMTP_USER, SMTP_PASS app password, and CONTACT_TO_EMAIL in Railway.',
         emailDelivered,
         emailConfigured: Boolean(process.env.SMTP_USER && process.env.SMTP_PASS),
+        emailConfig: getEmailConfigStatus(),
         error: mailError.code || mailError.responseCode || mailError.message,
       });
     }
@@ -130,6 +146,37 @@ export const getAllContacts = async (req, res) => {
     res.json(contacts);
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+};
+
+export const testEmail = async (req, res) => {
+  try {
+    const to = req.body?.to || getContactRecipient();
+    const info = await sendPortfolioEmail({
+      name: 'Portfolio SMTP Test',
+      email: process.env.SMTP_USER || to,
+      message: `This is a test email from your portfolio backend. Sent at ${new Date().toISOString()}.`,
+      to,
+    });
+
+    res.json({
+      success: true,
+      message: 'Test email sent successfully.',
+      messageId: info.messageId,
+      accepted: info.accepted,
+      rejected: info.rejected,
+      emailConfig: getEmailConfigStatus(),
+    });
+  } catch (error) {
+    console.error('Test email failed:', error);
+    res.status(error.code === 'SMTP_NOT_CONFIGURED' ? 503 : 502).json({
+      success: false,
+      message: error.code === 'SMTP_NOT_CONFIGURED'
+        ? 'Email is not configured. Set SMTP_USER and SMTP_PASS in Railway.'
+        : 'Gmail test failed. Check SMTP_USER, SMTP_PASS app password, and CONTACT_TO_EMAIL in Railway.',
+      error: error.code || error.responseCode || error.message,
+      emailConfig: getEmailConfigStatus(),
+    });
   }
 };
 

@@ -6,6 +6,7 @@ const router = express.Router();
 
 // Public routes
 router.get('/', projectController.getAllProjects);
+router.post('/seed', verifyToken, projectController.seedDefaultProjects);
 router.get('/:id', projectController.getProjectById);
 
 // Protected routes (admin only)

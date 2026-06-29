@@ -8,6 +8,7 @@ const router = express.Router();
 router.post('/', contactController.submitContact);
 
 // Protected routes (admin only)
+router.post('/test-email', verifyToken, contactController.testEmail);
 router.get('/', verifyToken, contactController.getAllContacts);
 router.delete('/:id', verifyToken, contactController.deleteContact);
 

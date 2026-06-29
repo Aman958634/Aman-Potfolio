@@ -112,7 +112,7 @@ const Contact = () => {
       );
     } catch (error) {
       console.error('Error submitting form:', error);
-      alert('Failed to send message. Please try again.');
+      alert(error.message || 'Failed to send message. Please try again.');
     } finally {
       setLoading(false);
     }

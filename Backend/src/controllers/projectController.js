@@ -171,6 +171,24 @@ export const getAllProjects = async (req, res) => {
   }
 };
 
+export const seedDefaultProjects = async (req, res) => {
+  try {
+    setNoCacheHeaders(res);
+    const connection = await pool.getConnection();
+    await ensureProjectsReady(connection);
+    await seedProjectsIfNeeded(connection);
+    const [projects] = await connection.query('SELECT * FROM projects');
+    connection.release();
+
+    res.json({
+      message: 'Projects are ready',
+      projects: projects.map(normalizeProjectRow),
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 export const getProjectById = async (req, res) => {
   try {
     setNoCacheHeaders(res);

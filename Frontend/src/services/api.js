@@ -155,6 +155,13 @@ const createCrudService = (endpoint) => ({
 });
 
 export const projectsService = createCrudService('projects');
+projectsService.seedDefault = async () => {
+  try {
+    return await api.post('/projects/seed');
+  } catch (error) {
+    throw parseApiError(error);
+  }
+};
 export const skillsService = createCrudService('skills');
 export const experienceService = createCrudService('experience');
 export const servicesService = createCrudService('services');
@@ -164,6 +171,13 @@ export const contactService = createCrudService('contact');
 contactService.submit = async (data) => {
   try {
     return await api.post('/contact', data);
+  } catch (error) {
+    throw parseApiError(error);
+  }
+};
+contactService.testEmail = async (data = {}) => {
+  try {
+    return await api.post('/contact/test-email', data);
   } catch (error) {
     throw parseApiError(error);
   }
