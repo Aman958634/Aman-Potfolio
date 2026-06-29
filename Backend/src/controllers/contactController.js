@@ -330,39 +330,42 @@ const mapContactRowToEmailPayload = (contact) => ({
   emailStatus: contact.email_status,
 });
 
-const sendContactEmailInBackground = (contactId, fallbackPayload) => {
-  void (async () => {
-    let lastError = null;
+const sendContactEmailWithRetry = async (contactId, fallbackPayload) => {
+  let lastError = null;
 
-    for (let attempt = 0; attempt < EMAIL_RETRY_DELAYS_MS.length; attempt += 1) {
-      await wait(EMAIL_RETRY_DELAYS_MS[attempt]);
+  for (let attempt = 0; attempt < EMAIL_RETRY_DELAYS_MS.length; attempt += 1) {
+    await wait(EMAIL_RETRY_DELAYS_MS[attempt]);
 
-      try {
-        const savedContact = await getSavedContact(contactId);
-        const emailPayload = savedContact
-          ? mapContactRowToEmailPayload(savedContact)
-          : fallbackPayload;
-        const info = await sendPortfolioEmail(emailPayload);
-        console.log('Contact Gmail delivered:', {
-          contactId,
-          messageId: info.messageId,
-          accepted: info.accepted,
-          attempt: attempt + 1,
-        });
-        await updateContactEmailStatus(contactId, 'sent');
-        return;
-      } catch (error) {
-        lastError = error;
-        console.error(`Contact Gmail delivery attempt ${attempt + 1} failed:`, error.code || error.responseCode || error.message);
-      }
+    try {
+      const savedContact = await getSavedContact(contactId);
+      const emailPayload = savedContact
+        ? mapContactRowToEmailPayload(savedContact)
+        : fallbackPayload;
+      const info = await sendPortfolioEmail(emailPayload);
+
+      console.log('Contact Gmail delivered:', {
+        contactId,
+        messageId: info.messageId,
+        accepted: info.accepted,
+        attempt: attempt + 1,
+      });
+
+      await updateContactEmailStatus(contactId, 'sent');
+      return info;
+    } catch (error) {
+      lastError = error;
+      console.error(`Contact Gmail delivery attempt ${attempt + 1} failed:`, error.code || error.responseCode || error.message);
     }
+  }
 
-    await updateContactEmailStatus(contactId, 'failed', lastError?.code || lastError?.responseCode || lastError?.message || 'Unknown email error');
-  })();
+  await updateContactEmailStatus(contactId, 'failed', lastError?.code || lastError?.responseCode || lastError?.message || 'Unknown email error');
+  throw lastError;
 };
 
 export const submitContact = async (req, res) => {
   let connection;
+  let savedContactId = null;
+
   try {
     const {
       name,
@@ -395,8 +398,14 @@ export const submitContact = async (req, res) => {
     );
 
     const contactId = result.insertId;
+    savedContactId = contactId;
 
-    sendContactEmailInBackground(contactId, {
+    if (connection) {
+      connection.release();
+      connection = null;
+    }
+
+    const info = await sendContactEmailWithRetry(contactId, {
       contactId,
       name: normalizedName,
       email: normalizedEmail,
@@ -407,15 +416,33 @@ export const submitContact = async (req, res) => {
     });
 
     return res.status(201).json({
-      message: 'Message saved successfully. Gmail notification is being sent.',
+      message: 'Message saved successfully and Gmail notification sent.',
       saved: true,
       contactId,
-      emailQueued: true,
+      emailQueued: false,
+      emailDelivered: true,
+      emailConfigured: getEmailConfigStatus().configured,
+      messageId: info.messageId,
+      accepted: info.accepted,
+    });
+  } catch (error) {
+    const emailAttemptedAfterSave = Boolean(savedContactId);
+    const status = emailAttemptedAfterSave
+      ? (error.code === 'SMTP_NOT_CONFIGURED' ? 503 : 502)
+      : 500;
+
+    res.status(status).json({
+      message: emailAttemptedAfterSave
+        ? (error.code === 'SMTP_NOT_CONFIGURED'
+          ? 'Message saved, but Gmail is not configured. Add SMTP_USER and SMTP_PASS, then redeploy.'
+          : 'Message saved, but Gmail notification could not be sent. Check SMTP_USER, SMTP_PASS Gmail app password, and CONTACT_TO_EMAIL.')
+        : error.message,
+      error: error.code || error.responseCode || error.message,
+      saved: emailAttemptedAfterSave,
+      contactId: savedContactId,
       emailDelivered: false,
       emailConfigured: getEmailConfigStatus().configured,
     });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
   } finally {
     if (connection) connection.release();
   }
