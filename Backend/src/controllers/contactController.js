@@ -163,7 +163,7 @@ const buildContactEmailContent = (contact) => {
   if (data.submittedAt) rows.push(['Submitted At', data.submittedAt]);
 
   const text = [
-    'New contact form message',
+    'New contact form message - form details',
     '',
     ...rows.map(([label, value]) => `${label}: ${value}`),
     '',
@@ -178,12 +178,22 @@ const buildContactEmailContent = (contact) => {
     </tr>
   `).join('');
 
+  const detailsHtml = rows.map(([label, value]) => `
+    <p style="margin:0 0 8px;font-size:15px;line-height:1.5;color:#0f172a;">
+      <strong>${escapeHtml(label)}:</strong> ${escapeHtml(value)}
+    </p>
+  `).join('');
+
   const html = `
     <div style="margin:0;padding:24px;background:#f8fafc;font-family:Arial,Helvetica,sans-serif;color:#0f172a;">
       <div style="max-width:640px;margin:0 auto;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">
         <div style="padding:20px 24px;background:#0f172a;color:#ffffff;">
           <h1 style="margin:0;font-size:20px;line-height:1.35;">New contact form message</h1>
-          <p style="margin:6px 0 0;color:#cbd5e1;font-size:13px;">This email contains the same data saved in the admin database.</p>
+          <p style="margin:6px 0 0;color:#cbd5e1;font-size:13px;">All submitted form values are shown below.</p>
+        </div>
+        <div style="padding:20px 24px;border-bottom:1px solid #e2e8f0;background:#ffffff;">
+          <h2 style="margin:0 0 14px;font-size:16px;line-height:1.4;color:#0f172a;">Form Details</h2>
+          ${detailsHtml}
         </div>
         <table role="presentation" cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;">
           ${detailRowsHtml}
@@ -266,9 +276,10 @@ const sendPortfolioEmail = async ({
   }
 
   const cleanSubject = sanitizeHeaderValue(subject);
+  const cleanName = sanitizeHeaderValue(name);
   const emailSubject = cleanSubject
-    ? `New portfolio message: ${cleanSubject}`
-    : 'New portfolio contact message';
+    ? `New contact from ${cleanName || 'Portfolio'}: ${cleanSubject}`
+    : `New contact from ${cleanName || 'Portfolio'}`;
   const smtp = getSmtpConfig();
   const { data, text, html } = buildContactEmailContent({
     contactId,
