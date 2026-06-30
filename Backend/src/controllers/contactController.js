@@ -93,11 +93,13 @@ const createTransporter = (overrides = {}) => {
     port,
     secure,
     requireTLS: port === 587,
+    family: 4,
     auth: {
       user: smtp.user,
       pass: smtp.pass,
     },
     connectionTimeout: 8000,
+    dnsTimeout: 8000,
     greetingTimeout: 8000,
     socketTimeout: 10000,
     tls: {
@@ -108,19 +110,15 @@ const createTransporter = (overrides = {}) => {
 
 const getSmtpSendOptions = () => {
   const smtp = getSmtpConfig();
-  const options = [{ port: smtp.port, secure: smtp.secure }];
 
   if (smtp.host.toLowerCase() === 'smtp.gmail.com') {
-    const fallback = smtp.port === 465
-      ? { port: 587, secure: false }
-      : { port: 465, secure: true };
-
-    if (!options.some((option) => option.port === fallback.port)) {
-      options.push(fallback);
-    }
+    return [
+      { port: 587, secure: false },
+      { port: 465, secure: true },
+    ];
   }
 
-  return options;
+  return [{ port: smtp.port, secure: smtp.secure }];
 };
 
 const formatContactDate = (value) => {
@@ -598,6 +596,61 @@ export const resendContactEmail = async (req, res) => {
       emailHelp: getEmailFailureHelp(error),
       emailConfig: getEmailConfigStatus(),
     });
+  }
+};
+
+export const retryFailedContactEmails = async (req, res) => {
+  let connection;
+
+  try {
+    connection = await pool.getConnection();
+    await ensureContactsReady(connection);
+
+    const [contacts] = await connection.query(
+      `SELECT id
+       FROM contacts
+       WHERE COALESCE(email_status, 'queued') <> 'sent'
+       ORDER BY created_at DESC
+       LIMIT 25`
+    );
+
+    const ids = contacts.map((contact) => contact.id);
+
+    if (ids.length) {
+      await connection.query(
+        `UPDATE contacts
+         SET email_status = 'queued', email_error = NULL, email_sent_at = NULL
+         WHERE id IN (?)`,
+        [ids]
+      );
+    }
+
+    if (connection) {
+      connection.release();
+      connection = null;
+    }
+
+    ids.forEach((id) => queueContactEmailDelivery(id));
+
+    res.json({
+      success: true,
+      message: ids.length
+        ? `${ids.length} Gmail message(s) queued for retry.`
+        : 'No failed or pending Gmail messages found.',
+      queued: ids.length,
+      ids,
+      emailConfig: getEmailConfigStatus(),
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Unable to retry failed Gmail messages.',
+      error: getEmailErrorMessage(error),
+      emailHelp: getEmailFailureHelp(error),
+      emailConfig: getEmailConfigStatus(),
+    });
+  } finally {
+    if (connection) connection.release();
   }
 };
 

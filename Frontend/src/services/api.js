@@ -238,6 +238,13 @@ contactService.resendEmail = async (id) => {
     throw parseApiError(error);
   }
 };
+contactService.retryFailedEmails = async () => {
+  try {
+    return await api.post('/contact/retry-failed-emails');
+  } catch (error) {
+    throw parseApiError(error);
+  }
+};
 export const testimonialsService = createCrudService('testimonials');
 export const usersService = createCrudService('users');
 export const analyticsService = createCrudService('analytics');

@@ -6,6 +6,7 @@ const AdminMessagesAdmin = () => {
   const [feedback, setFeedback] = useState('');
   const [emailConfig, setEmailConfig] = useState(null);
   const [testingEmail, setTestingEmail] = useState(false);
+  const [retryingFailed, setRetryingFailed] = useState(false);
   const [resendingId, setResendingId] = useState(null);
 
   const fetch = async () => {
@@ -73,6 +74,29 @@ const AdminMessagesAdmin = () => {
     }
   };
 
+  const handleRetryFailedEmails = async () => {
+    setRetryingFailed(true);
+    setFeedback('');
+    setEmailConfig(null);
+
+    try {
+      const response = await contactAPI.retryFailedEmails();
+      setFeedback(response.data?.message || 'Failed Gmail messages queued for retry.');
+      setEmailConfig(response.data?.emailConfig || null);
+      await fetch();
+    } catch (error) {
+      const serverData = error.response?.data;
+      setFeedback(
+        serverData?.emailHelp
+          ? `${error.message} ${serverData.emailHelp}`
+          : error.message || 'Unable to retry failed Gmail messages.'
+      );
+      setEmailConfig(serverData?.emailConfig || null);
+    } finally {
+      setRetryingFailed(false);
+    }
+  };
+
   const handleResendEmail = async (id) => {
     setResendingId(id);
     setFeedback('');
@@ -117,14 +141,24 @@ const AdminMessagesAdmin = () => {
           <h2 className="text-2xl font-semibold">Messages</h2>
           <p className="mt-1 text-sm text-slate-500">Saved contact form messages and Gmail delivery test.</p>
         </div>
-        <button
-          type="button"
-          onClick={handleTestEmail}
-          disabled={testingEmail}
-          className="rounded-full bg-violet-600 px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {testingEmail ? 'Sending Test...' : 'Send Test Gmail'}
-        </button>
+        <div className="flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={handleRetryFailedEmails}
+            disabled={retryingFailed}
+            className="rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {retryingFailed ? 'Retrying...' : 'Retry Failed Gmail'}
+          </button>
+          <button
+            type="button"
+            onClick={handleTestEmail}
+            disabled={testingEmail}
+            className="rounded-full bg-violet-600 px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {testingEmail ? 'Sending Test...' : 'Send Test Gmail'}
+          </button>
+        </div>
       </div>
 
       {feedback && <div className="mb-4 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700">{feedback}</div>}
