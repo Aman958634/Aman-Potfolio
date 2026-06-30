@@ -146,6 +146,10 @@ const escapeHtml = (value) => String(value ?? '')
   .replace(/"/g, '&quot;')
   .replace(/'/g, '&#39;');
 
+const sanitizeHeaderValue = (value) => String(value ?? '')
+  .replace(/[\r\n]+/g, ' ')
+  .trim();
+
 const buildContactEmailContent = (contact) => {
   const data = normalizeContactEmailPayload(contact);
   const rows = [
@@ -179,6 +183,7 @@ const buildContactEmailContent = (contact) => {
       <div style="max-width:640px;margin:0 auto;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">
         <div style="padding:20px 24px;background:#0f172a;color:#ffffff;">
           <h1 style="margin:0;font-size:20px;line-height:1.35;">New contact form message</h1>
+          <p style="margin:6px 0 0;color:#cbd5e1;font-size:13px;">This email contains the same data saved in the admin database.</p>
         </div>
         <table role="presentation" cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;">
           ${detailRowsHtml}
@@ -260,7 +265,10 @@ const sendPortfolioEmail = async ({
     throw error;
   }
 
-  const emailSubject = subject || 'Portfolio contact message';
+  const cleanSubject = sanitizeHeaderValue(subject);
+  const emailSubject = cleanSubject
+    ? `New portfolio message: ${cleanSubject}`
+    : 'New portfolio contact message';
   const smtp = getSmtpConfig();
   const { data, text, html } = buildContactEmailContent({
     contactId,
@@ -277,7 +285,7 @@ const sendPortfolioEmail = async ({
     from: `"${smtp.fromName}" <${smtp.user}>`,
     sender: smtp.user,
     to: to || getContactRecipient(),
-    replyTo: data.replyEmail.includes('@') ? data.replyEmail : undefined,
+    replyTo: data.replyEmail.includes('@') ? sanitizeHeaderValue(data.replyEmail) : undefined,
     subject: emailSubject,
     text,
     html,
@@ -445,8 +453,8 @@ export const submitContact = async (req, res) => {
         error: emailErrorMessage,
       });
 
-      return res.status(202).json({
-        message: 'Message saved in admin panel, but Gmail was not delivered. Check email settings.',
+      return res.status(502).json({
+        message: 'Message saved in admin panel, but Gmail was not delivered.',
         saved: true,
         contactId,
         emailQueued: false,

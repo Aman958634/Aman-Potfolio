@@ -96,11 +96,7 @@ const Contact = () => {
     setStatusMessage('');
     setErrorMessage('');
 
-    const showSavedSuccess = (message) => {
-      setSuccess(true);
-      setStatusMessage(message || 'Message saved successfully. Gmail notification is being sent.');
-      setFormData({ name: '', email: '', phone: '', subject: '', message: '' });
-
+    const notifyAdminMessagesChanged = () => {
       try {
         const bc = new BroadcastChannel('portfolio-cms');
         bc.postMessage({ type: 'cms:update', resource: 'messages' });
@@ -108,6 +104,13 @@ const Contact = () => {
       } catch (broadcastError) {
         console.warn('BroadcastChannel not available:', broadcastError);
       }
+    };
+
+    const showSavedSuccess = (message) => {
+      setSuccess(true);
+      setStatusMessage(message || 'Message saved successfully. Gmail notification is being sent.');
+      setFormData({ name: '', email: '', phone: '', subject: '', message: '' });
+      notifyAdminMessagesChanged();
 
       setTimeout(() => setSuccess(false), 4500);
 
@@ -122,11 +125,11 @@ const Contact = () => {
 
     try {
       const payload = {
-        name: formData.name,
-        email: formData.email,
-        phone: formData.phone,
-        subject: formData.subject,
-        message: formData.message,
+        name: formData.name.trim(),
+        email: formData.email.trim(),
+        phone: formData.phone.trim(),
+        subject: formData.subject.trim(),
+        message: formData.message.trim(),
       };
 
       const response = await contactAPI.submit(payload);
@@ -135,11 +138,31 @@ const Contact = () => {
         throw new Error(response.data?.message || 'Message could not be saved.');
       }
 
+      if (response.data?.emailDelivered !== true) {
+        const deliveryError = new Error(
+          response.data?.emailHelp
+            ? `${response.data.message} ${response.data.emailHelp}`
+            : response.data?.message || 'Message saved, but Gmail delivery failed.'
+        );
+        deliveryError.response = response;
+        throw deliveryError;
+      }
+
       showSavedSuccess(response.data?.message);
     } catch (error) {
       console.error('Error submitting form:', error);
-      if (error.response?.data?.saved === true) {
-        showSavedSuccess('Message saved successfully. Gmail notification is being retried.');
+      const serverData = error.response?.data;
+
+      if (serverData?.saved === true) {
+        notifyAdminMessagesChanged();
+        const gmailError = serverData.emailError || serverData.error;
+        const details = [
+          serverData.message || 'Message saved in database, but Gmail delivery failed.',
+          gmailError ? `Error: ${gmailError}.` : '',
+          serverData.emailHelp || '',
+        ].filter(Boolean).join(' ');
+
+        setErrorMessage(details);
         return;
       }
 
