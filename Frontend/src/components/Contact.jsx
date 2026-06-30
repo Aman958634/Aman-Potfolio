@@ -138,7 +138,7 @@ const Contact = () => {
         throw new Error(response.data?.message || 'Message could not be saved.');
       }
 
-      if (response.data?.emailDelivered !== true) {
+      if (response.data?.emailDelivered !== true && response.data?.emailQueued !== true) {
         const deliveryError = new Error(
           response.data?.emailHelp
             ? `${response.data.message} ${response.data.emailHelp}`

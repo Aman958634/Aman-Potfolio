@@ -371,6 +371,15 @@ const sendContactEmailWithRetry = async (contactId) => {
   throw lastError;
 };
 
+const queueContactEmailDelivery = (contactId) => {
+  void sendContactEmailWithRetry(contactId).catch((error) => {
+    console.error('Background Gmail delivery failed:', {
+      contactId,
+      error: getEmailErrorMessage(error),
+    });
+  });
+};
+
 const getEmailErrorMessage = (error) => (
   error?.code || error?.responseCode || error?.message || 'Unknown email error'
 );
@@ -433,37 +442,16 @@ export const submitContact = async (req, res) => {
       connection = null;
     }
 
-    try {
-      const info = await sendContactEmailWithRetry(contactId);
+    queueContactEmailDelivery(contactId);
 
-      return res.status(201).json({
-        message: 'Message saved successfully and sent to Gmail.',
-        saved: true,
-        contactId,
-        emailQueued: false,
-        emailDelivered: true,
-        emailMessageId: info.messageId,
-        emailAccepted: info.accepted,
-        emailConfigured: getEmailConfigStatus().configured,
-      });
-    } catch (emailError) {
-      const emailErrorMessage = getEmailErrorMessage(emailError);
-      console.error('Message saved but Gmail delivery failed:', {
-        contactId,
-        error: emailErrorMessage,
-      });
-
-      return res.status(502).json({
-        message: 'Message saved in admin panel, but Gmail was not delivered.',
-        saved: true,
-        contactId,
-        emailQueued: false,
-        emailDelivered: false,
-        emailError: emailErrorMessage,
-        emailHelp: getEmailFailureHelp(emailError),
-        emailConfigured: getEmailConfigStatus().configured,
-      });
-    }
+    return res.status(201).json({
+      message: 'Message saved successfully. Gmail notification is sending.',
+      saved: true,
+      contactId,
+      emailQueued: true,
+      emailDelivered: false,
+      emailConfigured: getEmailConfigStatus().configured,
+    });
   } catch (error) {
     res.status(500).json({
       message: error.message,
