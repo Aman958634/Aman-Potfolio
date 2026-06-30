@@ -15,8 +15,12 @@ const getSmtpConfig = () => {
   const pass = getEnvValue('SMTP_PASS', 'EMAIL_PASS', 'GMAIL_PASS', 'MAIL_PASS');
   const host = getEnvValue('SMTP_HOST', 'EMAIL_HOST', 'MAIL_HOST') || 'smtp.gmail.com';
   const isGmail = host.toLowerCase() === 'smtp.gmail.com';
-  const port = isGmail ? 465 : Number(getEnvValue('SMTP_PORT', 'EMAIL_PORT', 'MAIL_PORT') || 587);
-  const secure = isGmail || String(getEnvValue('SMTP_SECURE', 'EMAIL_SECURE', 'MAIL_SECURE')).toLowerCase() === 'true' || port === 465;
+  const explicitPort = getEnvValue('SMTP_PORT', 'EMAIL_PORT', 'MAIL_PORT');
+  const explicitSecure = getEnvValue('SMTP_SECURE', 'EMAIL_SECURE', 'MAIL_SECURE');
+  const port = Number(explicitPort || (isGmail ? 587 : 587));
+  const secure = explicitSecure
+    ? String(explicitSecure).toLowerCase() === 'true'
+    : port === 465;
 
   return {
     user,
@@ -28,7 +32,7 @@ const getSmtpConfig = () => {
   };
 };
 
-const EMAIL_RETRY_DELAYS_MS = [0, 3000, 10000];
+const EMAIL_RETRY_DELAYS_MS = [0, 1000, 3000];
 let contactsSchemaReady = false;
 
 const getContactRecipient = () => {
@@ -74,28 +78,49 @@ const ensureContactsReady = async (connection) => {
   contactsSchemaReady = true;
 };
 
-const createTransporter = () => {
+const createTransporter = (overrides = {}) => {
   const smtp = getSmtpConfig();
 
   if (!smtp.user || !smtp.pass) {
     return null;
   }
 
+  const port = Number(overrides.port || smtp.port);
+  const secure = typeof overrides.secure === 'boolean' ? overrides.secure : smtp.secure;
+
   return nodemailer.createTransport({
     host: smtp.host,
-    port: smtp.port,
-    secure: smtp.secure,
+    port,
+    secure,
+    requireTLS: port === 587,
     auth: {
       user: smtp.user,
       pass: smtp.pass,
     },
-    connectionTimeout: 15000,
-    greetingTimeout: 15000,
-    socketTimeout: 20000,
+    connectionTimeout: 8000,
+    greetingTimeout: 8000,
+    socketTimeout: 10000,
     tls: {
       rejectUnauthorized: false,
     },
   });
+};
+
+const getSmtpSendOptions = () => {
+  const smtp = getSmtpConfig();
+  const options = [{ port: smtp.port, secure: smtp.secure }];
+
+  if (smtp.host.toLowerCase() === 'smtp.gmail.com') {
+    const fallback = smtp.port === 465
+      ? { port: 587, secure: false }
+      : { port: 465, secure: true };
+
+    if (!options.some((option) => option.port === fallback.port)) {
+      options.push(fallback);
+    }
+  }
+
+  return options;
 };
 
 const formatContactDate = (value) => {
@@ -267,9 +292,9 @@ const sendPortfolioEmail = async ({
   submittedAt,
   to,
 }) => {
-  const transporter = createTransporter();
+  const smtp = getSmtpConfig();
 
-  if (!transporter) {
+  if (!smtp.user || !smtp.pass) {
     const error = new Error('Gmail is not configured. Add SMTP_USER and SMTP_PASS in Railway Variables.');
     error.code = 'SMTP_NOT_CONFIGURED';
     throw error;
@@ -280,7 +305,6 @@ const sendPortfolioEmail = async ({
   const emailSubject = cleanSubject
     ? `New contact from ${cleanName || 'Portfolio'}: ${cleanSubject}`
     : `New contact from ${cleanName || 'Portfolio'}`;
-  const smtp = getSmtpConfig();
   const { data, text, html } = buildContactEmailContent({
     contactId,
     name,
@@ -292,23 +316,39 @@ const sendPortfolioEmail = async ({
     submittedAt,
   });
 
-  const info = await transporter.sendMail({
-    from: `"${smtp.fromName}" <${smtp.user}>`,
-    sender: smtp.user,
-    to: to || getContactRecipient(),
-    replyTo: data.replyEmail.includes('@') ? sanitizeHeaderValue(data.replyEmail) : undefined,
-    subject: emailSubject,
-    text,
-    html,
-  });
+  let lastError = null;
 
-  if (info.rejected?.length) {
-    const error = new Error(`Gmail rejected recipient(s): ${info.rejected.join(', ')}`);
-    error.code = 'SMTP_RECIPIENT_REJECTED';
-    throw error;
+  for (const sendOption of getSmtpSendOptions()) {
+    try {
+      const transporter = createTransporter(sendOption);
+      const info = await transporter.sendMail({
+        from: `"${smtp.fromName}" <${smtp.user}>`,
+        sender: smtp.user,
+        to: to || getContactRecipient(),
+        replyTo: data.replyEmail.includes('@') ? sanitizeHeaderValue(data.replyEmail) : undefined,
+        subject: emailSubject,
+        text,
+        html,
+      });
+
+      if (info.rejected?.length) {
+        const error = new Error(`Gmail rejected recipient(s): ${info.rejected.join(', ')}`);
+        error.code = 'SMTP_RECIPIENT_REJECTED';
+        throw error;
+      }
+
+      return info;
+    } catch (error) {
+      lastError = error;
+      console.error('Gmail send failed on SMTP option:', {
+        port: sendOption.port,
+        secure: sendOption.secure,
+        error: getEmailErrorMessage(error),
+      });
+    }
   }
 
-  return info;
+  throw lastError;
 };
 
 const wait = (delayMs) => new Promise((resolve) => {
@@ -351,6 +391,7 @@ const mapContactRowToEmailPayload = (contact) => ({
 
 const sendContactEmailWithRetry = async (contactId) => {
   let lastError = null;
+  await updateContactEmailStatus(contactId, 'sending');
 
   for (let attempt = 0; attempt < EMAIL_RETRY_DELAYS_MS.length; attempt += 1) {
     await wait(EMAIL_RETRY_DELAYS_MS[attempt]);
@@ -406,6 +447,10 @@ const getEmailFailureHelp = (error) => {
 
   if (error?.code === 'SMTP_RECIPIENT_REJECTED') {
     return 'Gmail rejected the receiver email. Check CONTACT_TO_EMAIL.';
+  }
+
+  if (['ESOCKET', 'ETIMEDOUT', 'ECONNECTION'].includes(error?.code)) {
+    return 'SMTP socket connection failed. Keep SMTP_HOST=smtp.gmail.com, set SMTP_PORT=587, SMTP_SECURE=false in Railway Variables, then redeploy.';
   }
 
   return 'Check SMTP_USER, SMTP_PASS Gmail app password, CONTACT_TO_EMAIL, and Railway deploy logs.';
@@ -482,6 +527,12 @@ export const getAllContacts = async (req, res) => {
     await ensureContactsReady(connection);
     const [contacts] = await connection.query('SELECT * FROM contacts ORDER BY created_at DESC');
     connection.release();
+
+    contacts
+      .filter((contact) => !['sent', 'failed', 'sending'].includes(String(contact.email_status || 'queued')))
+      .slice(0, 5)
+      .forEach((contact) => queueContactEmailDelivery(contact.id));
+
     res.json(contacts);
   } catch (error) {
     res.status(500).json({ message: error.message });

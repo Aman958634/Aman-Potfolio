@@ -21,6 +21,7 @@ const AdminMessagesAdmin = () => {
   useEffect(() => {
     fetch();
 
+    const intervalId = window.setInterval(fetch, 5000);
     const bc = new BroadcastChannel('portfolio-cms');
     bc.onmessage = (ev) => {
       if (ev.data?.type === 'cms:update' && (ev.data.resource === 'messages' || ev.data.resource === 'contact' || ev.data.resource === 'all')) {
@@ -28,7 +29,10 @@ const AdminMessagesAdmin = () => {
       }
     };
 
-    return () => bc.close();
+    return () => {
+      window.clearInterval(intervalId);
+      bc.close();
+    };
   }, []);
 
   const handleDelete = async (id) => {
@@ -95,12 +99,14 @@ const AdminMessagesAdmin = () => {
   const getEmailStatusLabel = (message) => {
     if (message.email_status === 'sent') return 'Gmail sent';
     if (message.email_status === 'failed') return 'Gmail failed';
+    if (message.email_status === 'sending') return 'Gmail sending';
     return 'Gmail pending';
   };
 
   const getEmailStatusClass = (message) => {
     if (message.email_status === 'sent') return 'border-emerald-200 bg-emerald-50 text-emerald-700';
     if (message.email_status === 'failed') return 'border-red-200 bg-red-50 text-red-700';
+    if (message.email_status === 'sending') return 'border-blue-200 bg-blue-50 text-blue-700';
     return 'border-amber-200 bg-amber-50 text-amber-700';
   };
 
